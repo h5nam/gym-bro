@@ -5,6 +5,12 @@ import { formatDate } from "@/lib/utils";
 import SyncButton from "@/components/workout/SyncButton";
 import NormalizeButton from "@/components/workout/NormalizeButton";
 
+const CARDIO_TYPES = [
+  "treadmill_running", "street_running", "indoor_cycling", "cycling",
+  "stair_climbing", "walking", "hiking", "trail_running", "indoor_running",
+  "indoor_cardio", "elliptical",
+];
+
 export default async function WorkoutsPage() {
   const supabase = await createClient();
   const {
@@ -17,6 +23,39 @@ export default async function WorkoutsPage() {
     .eq("user_id", user?.id ?? "")
     .order("started_at", { ascending: false })
     .limit(20);
+
+  // Build cardio metrics map (session_id → metrics)
+  const cardioMap = new Map<string, { durationMin: number; avgHR: number; distance: number; calories: number }>();
+  if (sessions) {
+    const cardioSessions = sessions.filter((s) => {
+      const mg = s.muscle_groups as string[] | null;
+      return mg?.some((g) => CARDIO_TYPES.includes(g));
+    });
+    const rawIds = cardioSessions
+      .map((s) => s.raw_session_id)
+      .filter(Boolean) as string[];
+
+    if (rawIds.length > 0) {
+      const { data: rawPayloads } = await supabase
+        .from("workout_sessions_raw")
+        .select("id, raw_payload")
+        .in("id", rawIds);
+
+      const rawMap = new Map(
+        (rawPayloads ?? []).map((r) => [r.id, r.raw_payload as Record<string, unknown>])
+      );
+
+      for (const s of cardioSessions) {
+        const p = rawMap.get(s.raw_session_id);
+        cardioMap.set(s.id, {
+          durationMin: Math.round((s.duration_seconds ?? 0) / 60),
+          avgHR: p ? Math.round((p.averageHR as number) ?? 0) : 0,
+          distance: p ? Math.round(((p.distance as number) ?? 0) / 1000 * 10) / 10 : 0,
+          calories: p ? Math.round((p.calories as number) ?? 0) : 0,
+        });
+      }
+    }
+  }
 
   // Also get unprocessed raw sessions
   const { data: rawSessions } = await supabase
@@ -76,8 +115,16 @@ export default async function WorkoutsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {formatDate(session.started_at)} ·{" "}
-                    {Number(session.total_volume_kg).toLocaleString()}kg ·{" "}
-                    {session.total_sets}세트
+                    {cardioMap.has(session.id) ? (() => {
+                      const c = cardioMap.get(session.id)!;
+                      const parts = [`${c.durationMin}분`];
+                      if (c.avgHR > 0) parts.push(`${c.avgHR}bpm`);
+                      if (c.distance > 0) parts.push(`${c.distance}km`);
+                      if (c.calories > 0) parts.push(`${c.calories}kcal`);
+                      return parts.join(" · ");
+                    })() : (
+                      `${Number(session.total_volume_kg).toLocaleString()}kg · ${session.total_sets}세트`
+                    )}
                   </p>
                 </div>
                 <span

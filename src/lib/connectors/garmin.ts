@@ -1,6 +1,8 @@
 import { GarminConnect } from "garmin-connect";
 import type { Connector, RawWorkoutData } from "./types";
 
+const GC_API = "https://connectapi.garmin.com";
+
 export class GarminConnector implements Connector {
   name = "garmin" as const;
   private client: InstanceType<typeof GarminConnect>;
@@ -15,15 +17,17 @@ export class GarminConnector implements Connector {
 
   private async ensureAuth(): Promise<void> {
     if (this.authenticated) return;
+    console.log("[Garmin] Logging in...");
     await this.client.login();
     this.authenticated = true;
+    console.log("[Garmin] Login successful");
   }
 
   async fetchRecentWorkouts(since: Date): Promise<RawWorkoutData[]> {
     await this.ensureAuth();
 
-    // Fetch recent activities (up to 20)
     const activities = await this.client.getActivities(0, 20);
+    console.log(`[Garmin] Fetched ${activities.length} activities`);
 
     return activities
       .filter((a) => {
@@ -39,7 +43,7 @@ export class GarminConnector implements Connector {
           (a.activityType as unknown as Record<string, string>)?.typeKey ??
           "unknown",
         startTime: a.startTimeLocal as string,
-        durationSeconds: (a.duration as number) ?? 0,
+        durationSeconds: Math.round((a.duration as number) ?? 0),
       }));
   }
 
@@ -49,15 +53,12 @@ export class GarminConnector implements Connector {
     await this.ensureAuth();
 
     try {
-      // Use the undocumented but well-known Garmin endpoint for exercise sets
-      const url = `/activity-service/activity/${activityId}/exerciseSets`;
-      const data = await (this.client as unknown as {
-        get: <T>(url: string) => Promise<T>;
-      }).get<Record<string, unknown>>(url);
+      const url = `${GC_API}/activity-service/activity/${activityId}/exerciseSets`;
+      const data = await this.client.get<Record<string, unknown>>(url);
       return data;
     } catch (error) {
       console.error(
-        `Failed to fetch exercise sets for activity ${activityId}:`,
+        `[Garmin] Failed to fetch exercise sets for ${activityId}:`,
         error
       );
       return null;

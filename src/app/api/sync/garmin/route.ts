@@ -5,8 +5,11 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const body = await request.json().catch(() => ({}));
+    const forceFullSync = body?.fullSync === true;
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -45,14 +48,19 @@ export async function POST() {
       .update({ sync_status: "syncing", error_message: null })
       .eq("id", dataSource.id);
 
-    // Determine since date (last sync or 7 days ago)
-    const since = dataSource.last_sync_at
+    // Determine since date (last sync or 30 days ago for first sync)
+    const since = (dataSource.last_sync_at && !forceFullSync)
       ? new Date(dataSource.last_sync_at)
-      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    console.log("[Sync] Since:", since.toISOString());
 
     // Fetch workouts from Garmin
     const connector = getGarminConnector();
     const workouts = await connector.fetchRecentWorkouts(since);
+
+    console.log("[Sync] Workouts after filter:", workouts.length,
+      workouts.map(w => `${w.activityType} @ ${w.startTime}`));
 
     let synced = 0;
     let skipped = 0;
@@ -77,9 +85,11 @@ export async function POST() {
         workout.activityType === "strength_training" ||
         workout.activityType === "STRENGTH_TRAINING"
       ) {
+        console.log(`[Sync] Fetching exerciseSets for ${workout.sourceId}...`);
         exerciseSetsPayload = await connector.fetchExerciseSets(
           workout.sourceId
         );
+        console.log(`[Sync] exerciseSets result:`, exerciseSetsPayload ? "OK" : "null");
       }
 
       // Store raw data

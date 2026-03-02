@@ -53,6 +53,6 @@ ${
 7. actionItems는 구체적이고 실행 가능해야 합니다 (예: "내일 하체 운동 시 스쿼트 5세트 목표")`;
 
   return generateStructured(prompt, DailyReportSchema, {
-    model: "gemini-2.5-pro",
+    model: "gemini-3.1-pro-preview",
   });
 }

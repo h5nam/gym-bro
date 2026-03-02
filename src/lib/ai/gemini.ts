@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 
 let _ai: GoogleGenAI | null = null;
 
@@ -15,9 +15,10 @@ export async function generateStructured<T>(
   schema: { parse: (data: unknown) => T },
   options?: { model?: string; systemPrompt?: string }
 ): Promise<T> {
-  const model = options?.model ?? "gemini-2.5-flash";
+  const model = options?.model ?? "gemini-3-flash-preview";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const jsonSchema = zodToJsonSchema(schema as any);
+  const jsonSchema = z.toJSONSchema(schema as any);
+  console.log("[Gemini] JSON Schema:", JSON.stringify(jsonSchema).slice(0, 500));
 
   const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
 
@@ -45,7 +46,11 @@ export async function generateStructured<T>(
   const text = response.text;
   if (!text) throw new Error("Gemini returned empty response");
 
-  return schema.parse(JSON.parse(text));
+  const parsed = JSON.parse(text);
+  console.log("[Gemini] Response keys:", Object.keys(parsed));
+  console.log("[Gemini] Response preview:", JSON.stringify(parsed).slice(0, 500));
+
+  return schema.parse(parsed);
 }
 
 export async function generateText(

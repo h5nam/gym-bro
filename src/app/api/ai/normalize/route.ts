@@ -40,11 +40,81 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // For non-strength activities without exercise sets, create a simple session
     if (!rawSession.exercise_sets_payload) {
-      return NextResponse.json(
-        { error: "운동 세트 데이터가 없습니다" },
-        { status: 400 }
-      );
+      const activityType = rawSession.activity_type ?? "unknown";
+      const raw = rawSession.raw_payload as Record<string, unknown>;
+      const activityName = (raw.activityName as string) ?? activityType;
+      const calories = Math.round((raw.calories as number) ?? 0);
+      const distance = Math.round(((raw.distance as number) ?? 0) / 1000 * 10) / 10; // km
+      const durationMin = Math.round((rawSession.duration_seconds ?? 0) / 60);
+      const avgHR = Math.round((raw.averageHR as number) ?? 0);
+      const maxHR = Math.round((raw.maxHR as number) ?? 0);
+      const avgSpeed = raw.averageSpeed ? Math.round((raw.averageSpeed as number) * 3.6 * 10) / 10 : 0; // m/s → km/h
+
+      // Build descriptive session name
+      const typeNames: Record<string, string> = {
+        treadmill_running: "트레드밀 러닝",
+        street_running: "야외 러닝",
+        indoor_cycling: "실내 사이클",
+        cycling: "사이클",
+        stair_climbing: "계단 오르기",
+        walking: "걷기",
+        hiking: "하이킹",
+      };
+      const displayName = typeNames[activityType] ?? activityName;
+      const sessionName = `${displayName} ${durationMin}분`;
+
+      // Build summary note
+      const parts = [];
+      if (distance > 0) parts.push(`${distance}km`);
+      parts.push(`${durationMin}분`);
+      if (avgHR > 0) parts.push(`평균 심박 ${avgHR}bpm`);
+      if (maxHR > 0) parts.push(`최대 심박 ${maxHR}bpm`);
+      if (avgSpeed > 0) parts.push(`평균 속도 ${avgSpeed}km/h`);
+      if (calories > 0) parts.push(`${calories}kcal`);
+
+      const { data: session, error: sessionError } = await supabase
+        .from("workout_sessions")
+        .insert({
+          user_id: user.id,
+          raw_session_id: rawSessionId,
+          session_name: sessionName,
+          muscle_groups: [activityType],
+          started_at: rawSession.started_at,
+          duration_seconds: rawSession.duration_seconds,
+          total_volume_kg: 0,
+          total_sets: 0,
+          status: "confirmed",
+          ai_normalized_at: new Date().toISOString(),
+          user_confirmed_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      await supabase
+        .from("workout_sessions_raw")
+        .update({ processed: true })
+        .eq("id", rawSessionId);
+
+      return NextResponse.json({
+        success: true,
+        sessionId: session.id,
+        sessionName,
+        setCount: 0,
+        totalVolume: 0,
+        cardioSummary: {
+          distance,
+          durationMin,
+          avgHR,
+          maxHR,
+          avgSpeed,
+          calories,
+        },
+        note: parts.join(" · "),
+      });
     }
 
     // Fetch exercise catalog for matching

@@ -14,7 +14,11 @@ export default function SyncButton() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/sync/garmin", { method: "POST" });
+      const res = await fetch("/api/sync/garmin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullSync: true }),
+      });
       const data = await res.json();
 
       if (data.success) {
