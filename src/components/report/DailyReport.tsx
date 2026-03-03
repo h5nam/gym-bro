@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { BarChart3, Loader2 } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Loader2, BotMessageSquare, Dumbbell, Heart, Apple, Battery, Sparkles, Play } from "lucide-react";
 
 interface CoachingHighlight {
   title: string;
@@ -19,124 +19,337 @@ interface Report {
   full_report: string;
 }
 
-const categoryStyles: Record<string, { bg: string; text: string; label: string }> = {
-  positive: { bg: "bg-positive/10", text: "text-positive", label: "긍정" },
-  warning: { bg: "bg-warning/10", text: "text-warning", label: "주의" },
-  suggestion: { bg: "bg-suggestion/10", text: "text-suggestion", label: "제안" },
-  concern: { bg: "bg-concern/10", text: "text-concern", label: "우려" },
+interface AgentFeedback {
+  agent_name: string;
+  category: string;
+  priority: number;
+  title: string;
+  body: string;
+}
+
+const AGENT_CONFIG: Record<
+  string,
+  { label: string; icon: typeof Dumbbell; color: string; bgColor: string; tags: string[] }
+> = {
+  bodybuilding: {
+    label: "보디빌딩 코치",
+    icon: Dumbbell,
+    color: "text-blue-400",
+    bgColor: "from-blue-600 to-indigo-900",
+    tags: ["근비대", "볼륨"],
+  },
+  "sports-med": {
+    label: "스포츠의학 코치",
+    icon: Heart,
+    color: "text-red-400",
+    bgColor: "from-red-500 to-rose-900",
+    tags: ["관절 건강", "부상 예방"],
+  },
+  nutrition: {
+    label: "영양 코치",
+    icon: Apple,
+    color: "text-orange-400",
+    bgColor: "from-orange-400 to-amber-700",
+    tags: ["영양소", "에너지"],
+  },
+  recovery: {
+    label: "회복 코치",
+    icon: Battery,
+    color: "text-purple-400",
+    bgColor: "from-purple-500 to-indigo-800",
+    tags: ["회복", "피로도"],
+  },
 };
 
-export default function DailyReport() {
-  const [report, setReport] = useState<Report | null>(null);
-  const [loading, setLoading] = useState(true);
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
+export default function DailyReport() {
+  const [dates, setDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
+  const [agentFeedback, setAgentFeedback] = useState<AgentFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch available dates
   useEffect(() => {
-    async function fetchReport() {
+    async function fetchDates() {
       try {
-        const res = await fetch("/api/ai/report?type=daily");
+        const res = await fetch("/api/ai/report?type=dates");
         const data = await res.json();
-        setReport(data.report);
+        const sortedDates = data.dates ?? [];
+        setDates(sortedDates);
+        if (sortedDates.length > 0) {
+          setSelectedDate(sortedDates[sortedDates.length - 1]);
+        }
       } catch {
         // ignore
       } finally {
         setLoading(false);
       }
     }
-    fetchReport();
+    fetchDates();
   }, []);
+
+  // Fetch report for selected date
+  const fetchReport = useCallback(async (date: string) => {
+    setReportLoading(true);
+    try {
+      const res = await fetch(`/api/ai/report?type=daily&date=${date}`);
+      const data = await res.json();
+      setReport(data.report ?? null);
+      setAgentFeedback(data.agentFeedback ?? []);
+    } catch {
+      setReport(null);
+      setAgentFeedback([]);
+    } finally {
+      setReportLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedDate) fetchReport(selectedDate);
+  }, [selectedDate, fetchReport]);
+
+  // Scroll to active date
+  useEffect(() => {
+    if (scrollRef.current) {
+      const active = scrollRef.current.querySelector("[data-active='true']");
+      if (active) {
+        active.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      }
+    }
+  }, [selectedDate]);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Refresh dates and report
+        const datesRes = await fetch("/api/ai/report?type=dates");
+        const datesData = await datesRes.json();
+        setDates(datesData.dates ?? []);
+        setSelectedDate(data.reportDate);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  // Group feedback by agent
+  const feedbackByAgent = agentFeedback.reduce(
+    (acc, fb) => {
+      if (!acc[fb.agent_name]) acc[fb.agent_name] = [];
+      acc[fb.agent_name].push(fb);
+      return acc;
+    },
+    {} as Record<string, AgentFeedback[]>
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  if (!report) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12">
-        <BarChart3 className="mb-3 h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          운동을 기록하면 AI 코칭 리포트가 생성됩니다
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Date */}
-      <p className="text-sm text-muted-foreground">
-        {new Date(report.report_date).toLocaleDateString("ko-KR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          weekday: "long",
-        })}
-      </p>
+    <div className="space-y-5">
+      {/* Date Carousel */}
+      {dates.length > 0 && (
+        <div
+          ref={scrollRef}
+          className="flex gap-2.5 overflow-x-auto pb-2"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {dates.map((date) => {
+            const d = new Date(date + "T00:00:00");
+            const month = d.getMonth() + 1;
+            const day = d.getDate();
+            const dayName = DAY_NAMES[d.getDay()];
+            const isActive = date === selectedDate;
 
-      {/* Workout Summary */}
-      {report.workout_summary && (
-        <div className="rounded-lg border border-border p-3">
-          <h3 className="mb-1 text-sm font-medium">운동 요약</h3>
-          <p className="text-sm text-muted-foreground">
-            {report.workout_summary}
-          </p>
-        </div>
-      )}
-
-      {/* Nutrition Summary */}
-      {report.nutrition_summary && (
-        <div className="rounded-lg border border-border p-3">
-          <h3 className="mb-1 text-sm font-medium">식단 요약</h3>
-          <p className="text-sm text-muted-foreground">
-            {report.nutrition_summary}
-          </p>
-        </div>
-      )}
-
-      {/* Coaching Highlights */}
-      {report.coaching_highlights?.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium">코칭 포인트</h3>
-          {report.coaching_highlights.map((highlight, i) => {
-            const style = categoryStyles[highlight.category] ?? categoryStyles.suggestion;
             return (
-              <div
-                key={i}
-                className={`rounded-lg ${style.bg} p-3`}
+              <button
+                key={date}
+                data-active={isActive}
+                onClick={() => setSelectedDate(date)}
+                className="flex shrink-0 flex-col items-center justify-center transition-all"
               >
-                <div className="mb-1 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${style.text} ${style.bg}`}
-                  >
-                    {style.label}
+                <div
+                  className={`flex h-16 w-14 flex-col items-center justify-center rounded-xl transition-all ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-lg scale-105"
+                      : "border border-border bg-card text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  <span className="text-[10px] font-medium">
+                    {month}/{day}
                   </span>
-                  <h4 className="text-sm font-medium">{highlight.title}</h4>
+                  <span className="text-lg font-bold">{dayName}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {highlight.body}
-                </p>
-              </div>
+              </button>
             );
           })}
         </div>
       )}
 
-      {/* Action Items */}
-      {report.action_items?.length > 0 && (
-        <div className="rounded-lg bg-primary/5 p-3">
-          <h3 className="mb-2 text-sm font-medium">내일의 액션 플랜</h3>
-          <ul className="space-y-1">
-            {report.action_items.map((item, i) => (
-              <li key={i} className="flex gap-2 text-sm">
-                <span className="text-primary">{i + 1}.</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+      {/* Generate Button */}
+      <button
+        onClick={handleGenerate}
+        disabled={generating}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+      >
+        {generating ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Play className="h-4 w-4" />
+        )}
+        {generating ? "AI 분석 중..." : "오늘의 AI 코칭 생성"}
+      </button>
+
+      {/* Report Content */}
+      {reportLoading ? (
+        <div className="flex h-48 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
+      ) : !report && dates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16">
+          <BotMessageSquare className="mb-3 h-10 w-10 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            운동을 기록하면 AI 코칭을 받을 수 있습니다
+          </p>
+          <p className="text-xs text-muted-foreground">
+            위 버튼을 눌러 첫 코칭을 생성해보세요
+          </p>
+        </div>
+      ) : !report ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-12">
+          <BotMessageSquare className="mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {selectedDate
+              ? `${new Date(selectedDate + "T00:00:00").toLocaleDateString("ko-KR", {
+                  month: "long",
+                  day: "numeric",
+                })}의 리포트가 없습니다`
+              : "날짜를 선택해주세요"}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Agent Insight Cards */}
+          {Object.keys(feedbackByAgent).length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-base font-bold">에이전트 인사이트</h2>
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                  {agentFeedback.length}개
+                </span>
+              </div>
+
+              {Object.entries(feedbackByAgent).map(([agentName, feedbacks]) => {
+                const config = AGENT_CONFIG[agentName];
+                if (!config) return null;
+                const Icon = config.icon;
+
+                return (
+                  <div
+                    key={agentName}
+                    className="rounded-2xl border border-border bg-card p-4"
+                  >
+                    <div className="flex gap-3">
+                      <div className="shrink-0">
+                        <div
+                          className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${config.bgColor}`}
+                        >
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="mb-1 font-bold">{config.label}</h3>
+                        <div className="space-y-2">
+                          {feedbacks.map((fb, i) => (
+                            <p
+                              key={i}
+                              className="text-sm leading-relaxed text-muted-foreground"
+                            >
+                              {fb.body}
+                            </p>
+                          ))}
+                        </div>
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {feedbacks.map((fb, i) => (
+                            <span
+                              key={i}
+                              className="rounded-md bg-secondary px-2 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {fb.title}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Orchestrator Final Advice */}
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/5 to-transparent p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="font-bold">오케스트레이터의 최종 조언</h2>
+            </div>
+
+            {/* Coaching Highlights */}
+            {report.coaching_highlights?.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {report.coaching_highlights.map((h, i) => (
+                  <p
+                    key={i}
+                    className="text-sm leading-relaxed text-muted-foreground"
+                  >
+                    <span className="font-medium text-foreground">
+                      {h.title}
+                    </span>{" "}
+                    — {h.body}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Action Items */}
+            {report.action_items?.length > 0 && (
+              <div className="rounded-xl bg-card/50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  액션 플랜
+                </p>
+                <ul className="space-y-1.5">
+                  {report.action_items.map((item, i) => (
+                    <li key={i} className="flex gap-2 text-sm">
+                      <span className="shrink-0 font-bold text-primary">
+                        {i + 1}.
+                      </span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

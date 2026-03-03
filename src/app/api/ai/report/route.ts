@@ -18,6 +18,18 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") ?? "daily";
     const date = searchParams.get("date");
 
+    if (type === "dates") {
+      const { data: reports } = await supabase
+        .from("daily_reports")
+        .select("report_date")
+        .eq("user_id", user.id)
+        .order("report_date", { ascending: true });
+
+      return NextResponse.json({
+        dates: (reports ?? []).map((r) => r.report_date),
+      });
+    }
+
     if (type === "daily") {
       const reportDate = date ?? new Date().toISOString().split("T")[0];
 
@@ -28,7 +40,24 @@ export async function GET(request: NextRequest) {
         .eq("report_date", reportDate)
         .single();
 
-      return NextResponse.json({ report: report ?? null });
+      // Also fetch agent feedback for this report
+      let agentFeedback: Array<{
+        agent_name: string;
+        category: string;
+        priority: number;
+        title: string;
+        body: string;
+      }> = [];
+      if (report?.job_id) {
+        const { data: feedback } = await supabase
+          .from("agent_feedback")
+          .select("agent_name, category, priority, title, body")
+          .eq("job_id", report.job_id)
+          .order("priority", { ascending: false });
+        agentFeedback = feedback ?? [];
+      }
+
+      return NextResponse.json({ report: report ?? null, agentFeedback });
     }
 
     if (type === "weekly") {

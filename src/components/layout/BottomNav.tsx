@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   Dumbbell,
   UtensilsCrossed,
-  BarChart3,
+  BotMessageSquare,
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ const navItems = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/workouts", label: "운동", icon: Dumbbell },
   { href: "/meals", label: "식단", icon: UtensilsCrossed },
-  { href: "/reports/daily", label: "리포트", icon: BarChart3 },
+  { href: "/reports/daily", label: "AI코치", icon: BotMessageSquare },
   { href: "/body-metrics", label: "내 몸", icon: User },
 ];
 
