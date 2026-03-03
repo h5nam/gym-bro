@@ -53,11 +53,52 @@ export async function generateStructured<T>(
   return schema.parse(parsed);
 }
 
+export async function generateStructuredWithImage<T>(
+  prompt: string,
+  imageBase64: string,
+  mimeType: string,
+  schema: { parse: (data: unknown) => T },
+  options?: { model?: string; systemPrompt?: string }
+): Promise<T> {
+  const model = options?.model ?? "gemini-3-flash-preview";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const jsonSchema = z.toJSONSchema(schema as any);
+
+  const textPart = options?.systemPrompt
+    ? `[System]: ${options.systemPrompt}\n\n${prompt}`
+    : prompt;
+
+  const contents = [
+    {
+      role: "user" as const,
+      parts: [
+        { text: textPart },
+        { inlineData: { data: imageBase64, mimeType } },
+      ],
+    },
+  ];
+
+  const response = await getAI().models.generateContent({
+    model,
+    contents,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: jsonSchema as Record<string, unknown>,
+    },
+  });
+
+  const text = response.text;
+  if (!text) throw new Error("Gemini returned empty response");
+
+  const parsed = JSON.parse(text);
+  return schema.parse(parsed);
+}
+
 export async function generateText(
   prompt: string,
   options?: { model?: string; systemPrompt?: string }
 ): Promise<string> {
-  const model = options?.model ?? "gemini-2.5-flash";
+  const model = options?.model ?? "gemini-3-flash-preview";
 
   const fullPrompt = options?.systemPrompt
     ? `[System]: ${options.systemPrompt}\n\n${prompt}`

@@ -65,3 +65,11 @@
 .animate-in.slide-in-from-bottom {
   animation: slide-in-from-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -4,7 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Loader2 } from "lucide-react";
 
-export default function SyncButton() {
+interface SyncButtonProps {
+  variant?: "compact" | "full";
+}
+
+export default function SyncButton({ variant = "compact" }: SyncButtonProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const router = useRouter();
@@ -32,6 +36,28 @@ export default function SyncButton() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (variant === "full") {
+    return (
+      <div className="w-full space-y-2">
+        <button
+          onClick={handleSync}
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-secondary py-4 font-bold text-foreground transition-all hover:bg-secondary/80 disabled:opacity-50"
+        >
+          {loading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-5 w-5" />
+          )}
+          Garmin 기기와 동기화
+        </button>
+        {result && (
+          <p className="text-center text-sm text-muted-foreground">{result}</p>
+        )}
+      </div>
+    );
   }
 
   return (

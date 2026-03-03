@@ -84,7 +84,7 @@ export default function BodyMetricsForm({
       />
 
       {/* Sheet */}
-      <div className="relative w-full max-w-lg animate-in slide-in-from-bottom rounded-t-2xl border-t border-border bg-card p-5 pb-8">
+      <div className="relative mb-[calc(env(safe-area-inset-bottom)+76px)] w-full max-w-lg animate-in slide-in-from-bottom rounded-2xl border border-border bg-card p-5 mx-4">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-bold">체성분 입력</h2>
           <button

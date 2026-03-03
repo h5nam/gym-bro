@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Loader2, BotMessageSquare, Dumbbell, Heart, Apple, Battery, Sparkles, Play } from "lucide-react";
+import { Loader2, BotMessageSquare, Dumbbell, Heart, Apple, Battery, Sparkles, Play, CalendarPlus } from "lucide-react";
+import type { TomorrowPlan } from "@/lib/ai/schemas";
 
 interface CoachingHighlight {
   title: string;
@@ -16,6 +17,7 @@ interface Report {
   nutrition_summary: string;
   coaching_highlights: CoachingHighlight[];
   action_items: string[];
+  tomorrow_plan: TomorrowPlan | null;
   full_report: string;
 }
 
@@ -349,6 +351,39 @@ export default function DailyReport() {
               </div>
             )}
           </div>
+
+          {/* Tomorrow Plan */}
+          {report.tomorrow_plan && (
+            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/5 to-transparent p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <CalendarPlus className="h-5 w-5 text-emerald-400" />
+                <h2 className="font-bold">내일 계획</h2>
+              </div>
+
+              <p className="mb-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300">
+                {report.tomorrow_plan.keyFocus}
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    추천 운동
+                  </p>
+                  <p className="text-sm leading-relaxed">
+                    {report.tomorrow_plan.workoutRecommendation}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    영양 목표
+                  </p>
+                  <p className="text-sm leading-relaxed">
+                    {report.tomorrow_plan.nutritionGoal}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

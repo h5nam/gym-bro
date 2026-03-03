@@ -86,6 +86,12 @@ export type AgentFeedback = z.infer<typeof AgentFeedbackSchema>;
 // ============================================
 // Orchestrator Report
 // ============================================
+export const TomorrowPlanSchema = z.object({
+  workoutRecommendation: z.string().describe("내일 추천 운동 (부위, 종목, 볼륨)"),
+  nutritionGoal: z.string().describe("내일 영양 목표"),
+  keyFocus: z.string().describe("내일 핵심 포커스 한 줄"),
+});
+
 export const DailyReportSchema = z.object({
   workoutSummary: z.string().describe("오늘의 운동 요약"),
   nutritionSummary: z.string().describe("오늘의 식단 요약"),
@@ -96,8 +102,21 @@ export const DailyReportSchema = z.object({
       category: z.enum(["positive", "warning", "suggestion", "concern"]),
     })
   ).describe("핵심 코칭 포인트 3-5개"),
-  actionItems: z.array(z.string()).describe("내일의 액션 플랜 3개"),
+  actionItems: z.array(z.string()).describe("내일을 위한 구체적 실행 계획 3개"),
+  tomorrowPlan: TomorrowPlanSchema.describe("내일 추천 계획"),
   fullReport: z.string().describe("전체 리포트 (마크다운)"),
 });
 
+export type TomorrowPlan = z.infer<typeof TomorrowPlanSchema>;
 export type DailyReport = z.infer<typeof DailyReportSchema>;
+
+// ============================================
+// Session-level Quick Feedback
+// ============================================
+export const SessionFeedbackSchema = z.object({
+  feedback: z
+    .string()
+    .describe("보디빌딩 코치 관점의 세션 피드백 (한국어, 500자 이내)"),
+});
+
+export type SessionFeedback = z.infer<typeof SessionFeedbackSchema>;

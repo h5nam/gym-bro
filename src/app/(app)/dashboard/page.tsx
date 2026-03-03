@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { Dumbbell, UtensilsCrossed, BarChart3, RefreshCw } from "lucide-react";
-import Link from "next/link";
+import { getTodayKST } from "@/lib/date-utils";
+import { CARDIO_TYPES } from "@/lib/constants";
+import HomeDashboard, {
+  type InitialData,
+} from "@/components/dashboard/HomeDashboard";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -8,71 +11,142 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return (
-    <div className="space-y-6 p-4">
-      {/* Header */}
-      <div>
-        <p className="text-sm text-muted-foreground">안녕하세요</p>
-        <h1 className="text-xl font-bold">{user?.email?.split("@")[0]}님</h1>
-      </div>
+  if (!user) {
+    return null;
+  }
 
-      {/* Today Summary */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          오늘의 요약
-        </h2>
+  const todayStr = getTodayKST();
 
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/workouts"
-            className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary"
-          >
-            <Dumbbell className="mb-2 h-5 w-5 text-primary" />
-            <p className="text-sm text-muted-foreground">운동</p>
-            <p className="text-lg font-semibold">기록 없음</p>
-          </Link>
+  // Parallel data fetching
+  const [profileResult, mealsResult, metricsResult, workoutsResult, reportResult] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("meal_logs")
+        .select(
+          "total_calories, total_protein_g, total_carbs_g, total_fat_g"
+        )
+        .eq("user_id", user.id)
+        .eq("meal_date", todayStr),
+      supabase
+        .from("body_metrics")
+        .select("weight_kg, measured_at")
+        .eq("user_id", user.id)
+        .order("measured_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabase
+        .from("workout_sessions")
+        .select(
+          "id, session_name, started_at, duration_seconds, total_volume_kg, total_sets, status, muscle_groups, raw_session_id"
+        )
+        .eq("user_id", user.id)
+        .order("started_at", { ascending: false })
+        .limit(3),
+      supabase
+        .from("daily_reports")
+        .select("coaching_highlights")
+        .eq("user_id", user.id)
+        .order("report_date", { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
 
-          <Link
-            href="/meals"
-            className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary"
-          >
-            <UtensilsCrossed className="mb-2 h-5 w-5 text-primary" />
-            <p className="text-sm text-muted-foreground">식단</p>
-            <p className="text-lg font-semibold">기록 없음</p>
-          </Link>
-        </div>
-      </section>
+  // Aggregate meal totals
+  const meals = mealsResult.data;
+  const todayMeals =
+    meals && meals.length > 0
+      ? meals.reduce(
+          (acc, m) => ({
+            calories: acc.calories + (m.total_calories ?? 0),
+            protein: acc.protein + (m.total_protein_g ?? 0),
+            carbs: acc.carbs + (m.total_carbs_g ?? 0),
+            fat: acc.fat + (m.total_fat_g ?? 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        )
+      : null;
 
-      {/* Quick Actions */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          빠른 실행
-        </h2>
+  // Build recent workouts with cardio metrics
+  const sessions = workoutsResult.data ?? [];
+  const cardioSessions = sessions.filter((s) => {
+    const mg = s.muscle_groups as string[] | null;
+    return mg?.some((g) => CARDIO_TYPES.includes(g));
+  });
+  const rawIds = cardioSessions
+    .map((s) => s.raw_session_id)
+    .filter(Boolean) as string[];
 
-        <div className="flex flex-col gap-2">
-          <Link
-            href="/workouts"
-            className="flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-secondary"
-          >
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">Garmin 동기화</span>
-          </Link>
-          <Link
-            href="/meals"
-            className="flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-secondary"
-          >
-            <UtensilsCrossed className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">식단 기록하기</span>
-          </Link>
-          <Link
-            href="/reports/daily"
-            className="flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-secondary"
-          >
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">오늘의 코칭 리포트</span>
-          </Link>
-        </div>
-      </section>
-    </div>
-  );
+  // Fetch raw payloads for cardio metrics
+  let rawMap = new Map<string, Record<string, unknown>>();
+  if (rawIds.length > 0) {
+    const { data: rawPayloads } = await supabase
+      .from("workout_sessions_raw")
+      .select("id, raw_payload")
+      .in("id", rawIds);
+    rawMap = new Map(
+      (rawPayloads ?? []).map((r) => [
+        r.id,
+        r.raw_payload as Record<string, unknown>,
+      ])
+    );
+  }
+
+  const recentWorkouts = sessions.map((s) => {
+    const mg = s.muscle_groups as string[] | null;
+    const isCardio = mg?.some((g) => CARDIO_TYPES.includes(g)) ?? false;
+    const raw = isCardio && s.raw_session_id ? rawMap.get(s.raw_session_id) : undefined;
+
+    return {
+      id: s.id,
+      session_name: s.session_name,
+      started_at: s.started_at,
+      duration_seconds: s.duration_seconds,
+      total_volume_kg: Number(s.total_volume_kg),
+      total_sets: s.total_sets,
+      status: s.status,
+      muscle_groups: mg,
+      isCardio,
+      ...(isCardio && raw
+        ? {
+            cardio: {
+              durationMin: Math.round((s.duration_seconds ?? 0) / 60),
+              avgHR: Math.round((raw.averageHR as number) ?? 0),
+              distance:
+                Math.round(
+                  (((raw.distance as number) ?? 0) / 1000) * 10
+                ) / 10,
+              calories: Math.round((raw.calories as number) ?? 0),
+            },
+          }
+        : {}),
+    };
+  });
+
+  // Extract first coaching highlight
+  const highlights = reportResult.data?.coaching_highlights as
+    | { title: string; body: string }[]
+    | null;
+  const latestCoachingHighlight =
+    highlights && highlights.length > 0 ? highlights[0] : null;
+
+  const initialData: InitialData = {
+    userName: profileResult.data?.display_name ?? user.email?.split("@")[0] ?? "사용자",
+    todayMeals,
+    latestBodyMetric: metricsResult.data
+      ? {
+          weight_kg: metricsResult.data.weight_kg,
+          measured_at: metricsResult.data.measured_at,
+        }
+      : null,
+    recentWorkouts,
+    latestCoachingHighlight,
+    todayDateString: todayStr,
+  };
+
+  return <HomeDashboard initialData={initialData} />;
 }

@@ -187,8 +187,10 @@ export default function BodyMetricsDashboard({
       try {
         const res = await fetch("/api/body-metrics");
         const data = await res.json();
-        // API returns DESC (newest first) → reverse to chronological (oldest first)
-        const sorted = (data.metrics ?? []).reverse();
+        // API returns ASC; also sort client-side as safety net (ISO date strings sort lexicographically)
+        const sorted = (data.metrics ?? ([] as BodyMetric[])).sort(
+          (a: BodyMetric, b: BodyMetric) => a.measured_at.localeCompare(b.measured_at)
+        );
         setMetrics(sorted);
         // Default select the latest (last item)
         if (sorted.length > 0) setSelectedIdx(sorted.length - 1);

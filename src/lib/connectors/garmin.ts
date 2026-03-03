@@ -26,7 +26,7 @@ export class GarminConnector implements Connector {
   async fetchRecentWorkouts(since: Date): Promise<RawWorkoutData[]> {
     await this.ensureAuth();
 
-    const activities = await this.client.getActivities(0, 20);
+    const activities = await this.client.getActivities(0, 100);
     console.log(`[Garmin] Fetched ${activities.length} activities`);
 
     return activities

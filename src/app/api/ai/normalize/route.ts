@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
 
       // Build descriptive session name
       const typeNames: Record<string, string> = {
+        running: "러닝",
         treadmill_running: "트레드밀 러닝",
         street_running: "야외 러닝",
         indoor_cycling: "실내 사이클",
@@ -189,7 +190,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "정규화 실패",
-        details: error instanceof Error ? error.message : "Unknown",
       },
       { status: 500 }
     );

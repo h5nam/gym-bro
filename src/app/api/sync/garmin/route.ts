@@ -48,10 +48,15 @@ export async function POST(request: Request) {
       .update({ sync_status: "syncing", error_message: null })
       .eq("id", dataSource.id);
 
-    // Determine since date (last sync or 30 days ago for first sync)
-    const since = (dataSource.last_sync_at && !forceFullSync)
-      ? new Date(dataSource.last_sync_at)
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Determine since date
+    // - Custom since date from request body (one-time backfill)
+    // - Last sync time (incremental)
+    // - Default: 7 days ago (full sync)
+    const since = body?.since
+      ? new Date(body.since)
+      : (dataSource.last_sync_at && !forceFullSync)
+        ? new Date(dataSource.last_sync_at)
+        : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     console.log("[Sync] Since:", since.toISOString());
 
@@ -153,10 +158,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      {
-        error: "동기화 실패",
-        details: error instanceof Error ? error.message : "Unknown",
-      },
+      { error: "동기화 실패" },
       { status: 500 }
     );
   }

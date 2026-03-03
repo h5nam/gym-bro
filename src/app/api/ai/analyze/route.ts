@@ -4,6 +4,7 @@ import { sportsMedAgent } from "@/lib/ai/agents/sports-med";
 import { nutritionAgent } from "@/lib/ai/agents/nutrition";
 import { recoveryAgent } from "@/lib/ai/agents/recovery";
 import { orchestrate } from "@/lib/ai/agents/orchestrator";
+import { getTodayKST } from "@/lib/date-utils";
 import type { AgentContext } from "@/lib/ai/agents/types";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
     const report = await orchestrate(agentResults, context);
 
     // Save daily report
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayKST();
     await supabase.from("daily_reports").upsert(
       {
         user_id: user.id,
@@ -161,6 +162,7 @@ export async function POST(request: NextRequest) {
         nutrition_summary: report.nutritionSummary,
         coaching_highlights: report.coachingHighlights,
         action_items: report.actionItems,
+        tomorrow_plan: report.tomorrowPlan,
         full_report: report.fullReport,
       },
       { onConflict: "user_id,report_date" }
@@ -185,10 +187,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Analysis error:", error);
     return NextResponse.json(
-      {
-        error: "분석 실패",
-        details: error instanceof Error ? error.message : "Unknown",
-      },
+      { error: "분석 실패" },
       { status: 500 }
     );
   }

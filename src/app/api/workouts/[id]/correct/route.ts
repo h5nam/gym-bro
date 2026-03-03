@@ -123,7 +123,6 @@ export async function POST(
     return NextResponse.json(
       {
         error: "보정 실패",
-        details: error instanceof Error ? error.message : "Unknown",
       },
       { status: 500 }
     );

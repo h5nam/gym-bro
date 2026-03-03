@@ -339,7 +339,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Rebuild failed",
-        details: error instanceof Error ? error.message : "Unknown",
       },
       { status: 500 }
     );
