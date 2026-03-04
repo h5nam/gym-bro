@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const todayStr = getTodayKST();
 
     // Fetch context data in parallel
-    const [workoutsResult, mealsResult, metricsResult, reportResult] =
+    const [workoutsResult, mealsResult, metricsResult, reportResult, profileResult] =
       await Promise.all([
         supabase
           .from("workout_sessions")
@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
           .eq("user_id", user.id)
           .order("report_date", { ascending: false })
           .limit(1)
+          .single(),
+        supabase
+          .from("profiles")
+          .select("display_name, ai_memory")
+          .eq("id", user.id)
           .single(),
       ]);
 
@@ -95,6 +100,8 @@ export async function POST(request: NextRequest) {
           }
         : null,
       latestReport: reportResult.data?.full_report ?? null,
+      aiMemory: profileResult.data?.ai_memory ?? null,
+      userName: profileResult.data?.display_name ?? "사용자",
     };
 
     const systemPrompt = buildChatSystemPrompt(context);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   Bell,
@@ -29,6 +30,8 @@ import {
   toDateString,
   parseKST,
 } from "@/lib/date-utils";
+import { queryKeys, fetchDashboard } from "@/lib/queries";
+import ReactMarkdown from "react-markdown";
 
 // --- Types ---
 
@@ -101,18 +104,25 @@ function formatDuration(seconds: number): string {
 
 // --- Main Component ---
 
-export default function HomeDashboard({
-  initialData,
-}: {
-  initialData: InitialData;
-}) {
-  const today = new Date();
+export default function HomeDashboard() {
+  const { data: initialData, isLoading: dashboardLoading } = useQuery<InitialData>({
+    queryKey: queryKeys.dashboard.all,
+    queryFn: fetchDashboard,
+  });
+
+  const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [mealTotals, setMealTotals] = useState<MealTotals | null>(
-    initialData.todayMeals
-  );
+  const [mealTotals, setMealTotals] = useState<MealTotals | null>(null);
   const [loadingMeals, setLoadingMeals] = useState(false);
+
+  // Sync mealTotals when dashboard data loads
+  useEffect(() => {
+    if (initialData?.todayMeals && isSameDay(selectedDate, today)) {
+      setMealTotals(initialData.todayMeals);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.todayMeals]);
 
   // Chat state
   const [chatOpen, setChatOpen] = useState(false);
@@ -167,7 +177,7 @@ export default function HomeDashboard({
   useEffect(() => {
     if (!isSameDay(selectedDate, today)) {
       fetchMeals(toDateString(selectedDate));
-    } else {
+    } else if (initialData?.todayMeals) {
       setMealTotals(initialData.todayMeals);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,6 +253,14 @@ export default function HomeDashboard({
     year: "numeric",
     month: "long",
   });
+
+  if (dashboardLoading || !initialData) {
+    return (
+      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100dvh-4rem)] flex flex-col">
@@ -535,10 +553,10 @@ export default function HomeDashboard({
             )}
           </div>
           {initialData.recentWorkouts.length > 0 ? (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4">
               {initialData.recentWorkouts.map((workout) => (
-                <Link key={workout.id} href={`/workouts/${workout.id}`}>
-                  <div className="rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-secondary/30">
+                <Link key={workout.id} href={`/workouts/${workout.id}`} className="block">
+                  <div className="rounded-2xl border border-border bg-card p-4 transition-colors active:bg-secondary/30">
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
                         <div
@@ -725,10 +743,8 @@ export default function HomeDashboard({
                       <span className="ml-1 text-[11px] font-bold text-primary">
                         짐브로 AI
                       </span>
-                      <div className="rounded-xl rounded-bl-none border border-border bg-secondary px-4 py-3 shadow-sm">
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {msg.content}
-                        </p>
+                      <div className="chat-markdown rounded-xl rounded-bl-none border border-border bg-secondary px-4 py-3 shadow-sm">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     </div>
                   </div>

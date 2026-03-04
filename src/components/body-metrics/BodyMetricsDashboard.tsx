@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Scale, Dumbbell, Droplets, Plus } from "lucide-react";
+import { queryKeys, fetchBodyMetrics } from "@/lib/queries";
 
 interface BodyMetric {
   id: string;
@@ -176,32 +178,25 @@ export default function BodyMetricsDashboard({
 }: {
   onAddClick: () => void;
 }) {
-  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const { data: metrics = [], isLoading: loading } = useQuery<
+    { metrics: BodyMetric[] },
+    Error,
+    BodyMetric[]
+  >({
+    queryKey: queryKeys.bodyMetrics.all,
+    queryFn: fetchBodyMetrics,
+    select: (data) =>
+      (data.metrics ?? []).sort((a, b) =>
+        a.measured_at.localeCompare(b.measured_at)
+      ),
+  });
+
+  const [selectedIdx, setSelectedIdx] = useState(-1);
   const [selectedMetric, setSelectedMetric] = useState<MetricType>("weight");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function fetchMetrics() {
-      try {
-        const res = await fetch("/api/body-metrics");
-        const data = await res.json();
-        // API returns ASC; also sort client-side as safety net (ISO date strings sort lexicographically)
-        const sorted = (data.metrics ?? ([] as BodyMetric[])).sort(
-          (a: BodyMetric, b: BodyMetric) => a.measured_at.localeCompare(b.measured_at)
-        );
-        setMetrics(sorted);
-        // Default select the latest (last item)
-        if (sorted.length > 0) setSelectedIdx(sorted.length - 1);
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchMetrics();
-  }, []);
+  // Auto-select latest when data loads
+  const effectiveIdx = selectedIdx === -1 && metrics.length > 0 ? metrics.length - 1 : selectedIdx;
 
   // Scroll selected date into view
   useEffect(() => {
@@ -211,7 +206,7 @@ export default function BodyMetricsDashboard({
         active.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
       }
     }
-  }, [selectedIdx, metrics.length]);
+  }, [effectiveIdx, metrics.length]);
 
   if (loading) {
     return (
@@ -240,9 +235,9 @@ export default function BodyMetricsDashboard({
     );
   }
 
-  const selected = metrics[selectedIdx];
+  const selected = metrics[effectiveIdx];
   // Chronological order: previous measurement is at idx - 1
-  const prev = selectedIdx > 0 ? metrics[selectedIdx - 1] : null;
+  const prev = effectiveIdx > 0 ? metrics[effectiveIdx - 1] : null;
 
   // Compute diffs
   function getDiff(curr: number | null, prev: number | null) {
@@ -312,7 +307,7 @@ export default function BodyMetricsDashboard({
             const d = new Date(m.measured_at);
             const month = d.toLocaleDateString("ko-KR", { month: "short" });
             const day = String(d.getDate()).padStart(2, "0");
-            const isActive = i === selectedIdx;
+            const isActive = i === effectiveIdx;
 
             return (
               <button

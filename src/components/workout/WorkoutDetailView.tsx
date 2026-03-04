@@ -23,6 +23,7 @@ import {
   Timer,
   Zap,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -197,6 +198,24 @@ export default function WorkoutDetailView({
 }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState(session.status);
+  const [sessionName, setSessionName] = useState(session.session_name);
+
+  async function handleRenameSession(newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === sessionName) return;
+    const prev = sessionName;
+    setSessionName(trimmed);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("workout_sessions")
+        .update({ session_name: trimmed })
+        .eq("id", session.id);
+      if (error) throw error;
+    } catch {
+      setSessionName(prev);
+    }
+  }
 
   // Correction chat
   const [message, setMessage] = useState("");
@@ -215,13 +234,53 @@ export default function WorkoutDetailView({
   const startDate = parseKST(session.started_at);
   const isDraft = status === "draft";
 
+  // Mutable sets for inline editing
+  const [localSets, setLocalSets] = useState(sets);
+
   // Group sets by exercise
-  const groupedSets = sets.reduce<Record<string, SetData[]>>((acc, set) => {
+  const groupedSets = localSets.reduce<Record<string, SetData[]>>((acc, set) => {
     const key = set.exercise_name_display;
     if (!acc[key]) acc[key] = [];
     acc[key].push(set);
     return acc;
   }, {});
+
+  async function handleRenameExercise(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+
+    // Capture IDs before optimistic update
+    const setIds = localSets
+      .filter((s) => s.exercise_name_display === oldName)
+      .map((s) => s.id);
+
+    // Optimistic UI update
+    setLocalSets((prev) =>
+      prev.map((s) =>
+        s.exercise_name_display === oldName
+          ? { ...s, exercise_name_display: trimmed }
+          : s
+      )
+    );
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("workout_sets")
+        .update({ exercise_name_display: trimmed })
+        .in("id", setIds);
+      if (error) throw error;
+    } catch {
+      // Rollback on failure
+      setLocalSets((prev) =>
+        prev.map((s) =>
+          setIds.includes(s.id)
+            ? { ...s, exercise_name_display: oldName }
+            : s
+        )
+      );
+    }
+  }
 
   /* ── Handlers ── */
 
@@ -237,12 +296,6 @@ export default function WorkoutDetailView({
         })
         .eq("id", session.id);
       if (error) throw error;
-
-      await fetch("/api/ai/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
-      });
 
       setStatus("confirmed");
       router.refresh();
@@ -339,12 +392,15 @@ export default function WorkoutDetailView({
         ) : (
           <StrengthContent
             session={session}
+            sessionName={sessionName}
             groupedSets={groupedSets}
             startDate={startDate}
             isDraft={isDraft}
             aiFeedback={aiFeedback}
             feedbackLoading={feedbackLoading}
             onGenerateFeedback={handleGenerateFeedback}
+            onRenameExercise={handleRenameExercise}
+            onRenameSession={handleRenameSession}
           />
         )}
 
@@ -436,30 +492,85 @@ export default function WorkoutDetailView({
 
 function StrengthContent({
   session,
+  sessionName,
   groupedSets,
   startDate,
   isDraft,
   aiFeedback,
   feedbackLoading,
   onGenerateFeedback,
+  onRenameExercise,
+  onRenameSession,
 }: {
   session: SessionDetailData;
+  sessionName: string;
   groupedSets: Record<string, SetData[]>;
   startDate: Date;
   isDraft: boolean;
   aiFeedback: string | null;
   feedbackLoading: boolean;
   onGenerateFeedback: () => void;
+  onRenameExercise: (oldName: string, newName: string) => Promise<void>;
+  onRenameSession: (newName: string) => Promise<void>;
 }) {
+  const [editingExercise, setEditingExercise] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState(sessionName);
   return (
     <>
       {/* Hero */}
       <div className="px-5 pt-6 pb-2">
         <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">
-              {session.session_name}
-            </h1>
+          <div className="flex-1 min-w-0">
+            {editingTitle ? (
+              <form
+                className="flex items-center gap-2 mb-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await onRenameSession(titleValue);
+                  setEditingTitle(false);
+                }}
+              >
+                <input
+                  autoFocus
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  className="flex-1 rounded-lg border border-primary/40 bg-secondary px-3 py-1.5 text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full p-1.5 text-positive hover:bg-positive/10 transition-colors"
+                >
+                  <Check className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleValue(sessionName);
+                    setEditingTitle(false);
+                  }}
+                  className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center gap-2 mb-2">
+                <h1 className="text-3xl font-bold tracking-tight truncate">
+                  {sessionName}
+                </h1>
+                <button
+                  onClick={() => {
+                    setTitleValue(sessionName);
+                    setEditingTitle(true);
+                  }}
+                  className="shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4" />
               <span>{formatDateKR(startDate)}</span>
@@ -469,7 +580,7 @@ function StrengthContent({
             </div>
           </div>
           {session.raw_session_id && (
-            <span className="text-xs font-medium px-2 py-1 rounded bg-suggestion/20 text-suggestion border border-suggestion/20 flex items-center gap-1">
+            <span className="shrink-0 text-xs font-medium px-2 py-1 rounded bg-suggestion/20 text-suggestion border border-suggestion/20 flex items-center gap-1">
               <Activity className="h-3 w-3" /> Garmin
             </span>
           )}
@@ -516,10 +627,52 @@ function StrengthContent({
           >
             {/* Exercise header */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
                 <Dumbbell className="h-5 w-5 text-muted-foreground" />
               </div>
-              <h3 className="font-bold text-lg">{exerciseName}</h3>
+              {editingExercise === exerciseName ? (
+                <form
+                  className="flex flex-1 items-center gap-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    await onRenameExercise(exerciseName, editValue);
+                    setEditingExercise(null);
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="flex-1 rounded-lg border border-primary/40 bg-secondary px-3 py-1.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-full p-1.5 text-positive hover:bg-positive/10 transition-colors"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingExercise(null)}
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </form>
+              ) : (
+                <div className="flex flex-1 items-center gap-2 min-w-0">
+                  <h3 className="font-bold text-lg truncate">{exerciseName}</h3>
+                  <button
+                    onClick={() => {
+                      setEditingExercise(exerciseName);
+                      setEditValue(exerciseName);
+                    }}
+                    className="shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Set grid */}

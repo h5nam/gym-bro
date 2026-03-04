@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   Dumbbell,
@@ -11,6 +12,7 @@ import {
   Activity,
   Search,
   CalendarDays,
+  Loader2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +25,7 @@ import {
   calcWeekOffset,
 } from "@/lib/date-utils";
 import { CARDIO_TYPES } from "@/lib/constants";
+import { queryKeys, fetchWorkouts } from "@/lib/queries";
 import NormalizeButton from "./NormalizeButton";
 import SyncButton from "./SyncButton";
 
@@ -50,12 +53,6 @@ export interface CardioMetrics {
   avgHR: number;
   distance: number;
   calories: number;
-}
-
-interface Props {
-  sessions: SessionData[];
-  rawSessions: RawSessionData[];
-  cardioMetrics: Record<string, CardioMetrics>;
 }
 
 // --- Helpers ---
@@ -127,11 +124,15 @@ function getFullMonthGrid(year: number, month: number): CalendarCell[][] {
 
 // --- Main Component ---
 
-export default function WorkoutListView({
-  sessions,
-  rawSessions,
-  cardioMetrics,
-}: Props) {
+export default function WorkoutListView() {
+  const { data: workoutsData, isLoading: workoutsLoading } = useQuery({
+    queryKey: queryKeys.workouts.all,
+    queryFn: fetchWorkouts,
+  });
+
+  const sessions = (workoutsData?.sessions ?? []) as SessionData[];
+  const rawSessions = (workoutsData?.rawSessions ?? []) as RawSessionData[];
+  const cardioMetrics: Record<string, CardioMetrics> = workoutsData?.cardioMetrics ?? {};
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -189,6 +190,14 @@ export default function WorkoutListView({
     },
     [today]
   );
+
+  if (workoutsLoading) {
+    return (
+      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!hasAnyData) {
     return <EmptyState today={today} />;

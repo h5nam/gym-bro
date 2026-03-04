@@ -3,9 +3,8 @@ import { generateStructured } from "@/lib/ai/gemini";
 import { NormalizedWorkoutSchema } from "@/lib/ai/schemas";
 import { buildNormalizePrompt } from "@/lib/ai/prompts/normalize";
 import { NextRequest, NextResponse } from "next/server";
-
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,6 +98,7 @@ export async function POST(request: NextRequest) {
         .from("workout_sessions_raw")
         .update({ processed: true })
         .eq("id", rawSessionId);
+
 
       return NextResponse.json({
         success: true,

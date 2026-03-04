@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Save, Loader2, X } from "lucide-react";
+import { queryKeys } from "@/lib/queries";
 
 export default function BodyMetricsForm({
   open,
@@ -21,7 +22,7 @@ export default function BodyMetricsForm({
     bmi: "",
     notes: "",
   });
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   function handleChange(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -62,9 +63,7 @@ export default function BodyMetricsForm({
           notes: "",
         });
         onClose();
-        router.refresh();
-        // Force re-fetch by reloading
-        window.location.reload();
+        queryClient.invalidateQueries({ queryKey: queryKeys.bodyMetrics.all });
       }
     } catch {
       // ignore

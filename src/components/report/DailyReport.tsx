@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, BotMessageSquare, Dumbbell, Heart, Apple, Battery, Sparkles, Play, CalendarPlus } from "lucide-react";
 import type { TomorrowPlan } from "@/lib/ai/schemas";
+import { queryKeys, fetchReportDates, fetchDailyReport } from "@/lib/queries";
 
 interface CoachingHighlight {
   title: string;
@@ -66,54 +68,35 @@ const AGENT_CONFIG: Record<
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
 export default function DailyReport() {
-  const [dates, setDates] = useState<string[]>([]);
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [report, setReport] = useState<Report | null>(null);
-  const [agentFeedback, setAgentFeedback] = useState<AgentFeedback[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [reportLoading, setReportLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch available dates
+  const { data: datesData, isLoading: loading } = useQuery({
+    queryKey: queryKeys.reports.dates(),
+    queryFn: fetchReportDates,
+  });
+
+  const dates = datesData?.dates ?? [];
+
+  // Auto-select latest date when dates load
   useEffect(() => {
-    async function fetchDates() {
-      try {
-        const res = await fetch("/api/ai/report?type=dates");
-        const data = await res.json();
-        const sortedDates = data.dates ?? [];
-        setDates(sortedDates);
-        if (sortedDates.length > 0) {
-          setSelectedDate(sortedDates[sortedDates.length - 1]);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
+    if (dates.length > 0 && selectedDate === null) {
+      setSelectedDate(dates[dates.length - 1]);
     }
-    fetchDates();
-  }, []);
+  }, [dates, selectedDate]);
 
   // Fetch report for selected date
-  const fetchReport = useCallback(async (date: string) => {
-    setReportLoading(true);
-    try {
-      const res = await fetch(`/api/ai/report?type=daily&date=${date}`);
-      const data = await res.json();
-      setReport(data.report ?? null);
-      setAgentFeedback(data.agentFeedback ?? []);
-    } catch {
-      setReport(null);
-      setAgentFeedback([]);
-    } finally {
-      setReportLoading(false);
-    }
-  }, []);
+  const { data: reportData, isLoading: reportLoading } = useQuery({
+    queryKey: queryKeys.reports.daily(selectedDate ?? ""),
+    queryFn: () => fetchDailyReport(selectedDate!),
+    enabled: !!selectedDate,
+  });
 
-  useEffect(() => {
-    if (selectedDate) fetchReport(selectedDate);
-  }, [selectedDate, fetchReport]);
+  const report = (reportData?.report as Report) ?? null;
+  const agentFeedback = (reportData?.agentFeedback as AgentFeedback[]) ?? [];
 
   // Scroll to active date
   useEffect(() => {
@@ -135,11 +118,9 @@ export default function DailyReport() {
       });
       const data = await res.json();
       if (data.success) {
-        // Refresh dates and report
-        const datesRes = await fetch("/api/ai/report?type=dates");
-        const datesData = await datesRes.json();
-        setDates(datesData.dates ?? []);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.reports.dates() });
         setSelectedDate(data.reportDate);
+        queryClient.invalidateQueries({ queryKey: queryKeys.reports.daily(data.reportDate) });
       }
     } catch {
       // ignore

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera,
   ChevronLeft,
@@ -25,6 +26,7 @@ import {
   dateKey,
   toDateString,
 } from "@/lib/date-utils";
+import { queryKeys, fetchMealsByDate, fetchMealDates } from "@/lib/queries";
 
 // --- Types ---
 
@@ -143,11 +145,31 @@ export default function MealsDashboard() {
     month: "long",
   });
 
-  // Meal data
-  const [meals, setMeals] = useState<MealLog[]>([]);
-  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
-  const [mealDateKeys, setMealDateKeys] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const currentDateStr = toDateString(selectedDate);
+
+  // Meal data via TanStack Query
+  const { data: mealsData, isLoading: loading } = useQuery({
+    queryKey: queryKeys.meals.byDate(currentDateStr),
+    queryFn: () => fetchMealsByDate(currentDateStr),
+  });
+
+  const meals: MealLog[] = mealsData?.meals ?? [];
+  const recentItems: RecentItem[] = mealsData?.recentItems ?? [];
+
+  const { data: datesData } = useQuery({
+    queryKey: queryKeys.meals.dates(),
+    queryFn: fetchMealDates,
+  });
+
+  const mealDateKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const dateStr of datesData?.dates ?? []) {
+      const d = new Date(dateStr + "T00:00:00");
+      keys.add(dateKey(d));
+    }
+    return keys;
+  }, [datesData]);
 
   // Input state
   const [text, setText] = useState("");
@@ -165,45 +187,10 @@ export default function MealsDashboard() {
   const [pendingResult, setPendingResult] = useState<ParsedResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // --- Data fetching ---
-
-  const fetchMeals = useCallback(async (date: Date) => {
-    setLoading(true);
-    try {
-      const dateStr = toDateString(date);
-      const res = await fetch(`/api/meals?date=${dateStr}`);
-      const data = await res.json();
-      setMeals(data.meals ?? []);
-      setRecentItems(data.recentItems ?? []);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchMealDates = useCallback(async () => {
-    try {
-      const res = await fetch("/api/meals/dates");
-      const data = await res.json();
-      const keys = new Set<string>();
-      for (const dateStr of data.dates ?? []) {
-        const d = new Date(dateStr + "T00:00:00");
-        keys.add(dateKey(d));
-      }
-      setMealDateKeys(keys);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMeals(selectedDate);
-  }, [selectedDate, fetchMeals]);
-
-  useEffect(() => {
-    fetchMealDates();
-  }, [fetchMealDates]);
+  function invalidateMeals() {
+    queryClient.invalidateQueries({ queryKey: queryKeys.meals.byDate(currentDateStr) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.meals.dates() });
+  }
 
   // --- Image handling ---
 
@@ -277,13 +264,11 @@ export default function MealsDashboard() {
       const data = await res.json();
       if (data.success) {
         setText("");
-        fetchMeals(selectedDate);
-        fetchMealDates();
+        invalidateMeals();
       } else {
         setErrorMsg(data.details || data.error || "분석에 실패했습니다");
       }
-    } catch (err) {
-      console.error("[MealsDashboard] analyzeText error:", err);
+    } catch {
       setErrorMsg("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setAnalyzing(false);
@@ -315,8 +300,7 @@ export default function MealsDashboard() {
         setPendingResult(null);
         clearImage();
         setText("");
-        fetchMeals(selectedDate);
-        fetchMealDates();
+        invalidateMeals();
       }
     } catch {
       // ignore
