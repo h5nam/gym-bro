@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-**Stack**: Next.js 16 (App Router), React 19, TypeScript, Supabase (Postgres + Auth + RLS), Google Gemini (`@google/genai`), Tailwind CSS v4, pnpm
+**Stack**: Next.js 16 (App Router), React 19, TypeScript, Supabase (Postgres + Auth + RLS), Google Gemini (`@google/genai`), TanStack Query v5, Tailwind CSS v4, pnpm
 
 ### Route Groups
 
@@ -26,6 +26,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `api/ai/analyze/` — 멀티에이전트 분석 + 리포트 생성
 - `api/ai/chat/` — AI 코치 대화 (correction chat 등)
 - `api/ai/session-feedback/` — 개별 세션 피드백 생성
+- `api/ai/report/` — 일일/주간 리포트 조회 (type=dates | type=daily&date=)
+- `api/dashboard/` — 대시보드 집계 데이터
+- `api/workouts/` — 운동 세션 목록 조회
 - `api/meals/` — 식단 CRUD
 - `api/meals/analyze-image/` — 식단 이미지 AI 분석
 - `api/meals/dates/` — 식단 기록 날짜 목록

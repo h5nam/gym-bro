@@ -111,3 +111,25 @@ export async function generateText(
 
   return response.text ?? "";
 }
+
+export async function generateChat(
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+  options?: { model?: string; systemPrompt?: string }
+): Promise<string> {
+  const model = options?.model ?? "gemini-3-flash-preview";
+
+  const contents = history.map((msg) => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.content }],
+  }));
+
+  const response = await getAI().models.generateContent({
+    model,
+    contents,
+    config: options?.systemPrompt
+      ? { systemInstruction: options.systemPrompt }
+      : undefined,
+  });
+
+  return response.text ?? "";
+}

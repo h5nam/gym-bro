@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Loader2 } from "lucide-react";
+import { queryKeys } from "@/lib/queries";
 
 interface SyncButtonProps {
   variant?: "compact" | "full";
@@ -11,7 +12,7 @@ interface SyncButtonProps {
 export default function SyncButton({ variant = "compact" }: SyncButtonProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   async function handleSync() {
     setLoading(true);
@@ -27,7 +28,8 @@ export default function SyncButton({ variant = "compact" }: SyncButtonProps) {
 
       if (data.success) {
         setResult(`${data.synced}건 동기화 완료`);
-        router.refresh();
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workouts.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       } else {
         setResult(`실패: ${data.error}`);
       }

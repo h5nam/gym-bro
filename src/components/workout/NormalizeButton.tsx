@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Loader2 } from "lucide-react";
+import { queryKeys } from "@/lib/queries";
 
 interface Props {
   rawSessionId: string;
@@ -12,6 +14,7 @@ export default function NormalizeButton({ rawSessionId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   async function handleNormalize() {
     setLoading(true);
@@ -32,6 +35,8 @@ export default function NormalizeButton({ rawSessionId }: Props) {
       }
 
       if (data.success) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workouts.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
         router.push(`/workouts/${data.sessionId}`);
       }
     } catch {

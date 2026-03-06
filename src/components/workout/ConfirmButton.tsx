@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { queryKeys } from "@/lib/queries";
 
 interface Props {
   sessionId: string;
@@ -12,6 +14,7 @@ interface Props {
 export default function ConfirmButton({ sessionId }: Props) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   async function handleConfirm() {
     setLoading(true);
@@ -35,6 +38,9 @@ export default function ConfirmButton({ sessionId }: Props) {
         body: JSON.stringify({ sessionId }),
       });
 
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workouts.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reports.dates() });
       router.refresh();
     } catch (error) {
       console.error("Confirm error:", error);

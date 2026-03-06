@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 import {
   Camera,
   ChevronLeft,
@@ -335,8 +336,15 @@ export default function MealsDashboard() {
   // Is pending result from image (needs explicit save) vs text (already saved)?
   const needsSave = pendingResult && imagePreview;
 
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.meals.byDate(currentDateStr) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.meals.dates() }),
+    ]);
+  }, [queryClient, currentDateStr]);
+
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <PullToRefresh onRefresh={handleRefresh} className="flex min-h-[calc(100dvh-4rem)] flex-col">
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur-md">
         <h2 className="text-lg font-bold">식단 기록</h2>
@@ -745,7 +753,7 @@ export default function MealsDashboard() {
           </button>
         </div>
       )}
-    </div>
+    </PullToRefresh>
   );
 }
 

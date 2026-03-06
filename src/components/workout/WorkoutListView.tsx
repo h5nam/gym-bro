@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 import Link from "next/link";
 import {
   Dumbbell,
@@ -125,6 +126,7 @@ function getFullMonthGrid(year: number, month: number): CalendarCell[][] {
 // --- Main Component ---
 
 export default function WorkoutListView() {
+  const queryClient = useQueryClient();
   const { data: workoutsData, isLoading: workoutsLoading } = useQuery({
     queryKey: queryKeys.workouts.all,
     queryFn: fetchWorkouts,
@@ -191,6 +193,10 @@ export default function WorkoutListView() {
     [today]
   );
 
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.workouts.all });
+  }, [queryClient]);
+
   if (workoutsLoading) {
     return (
       <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center">
@@ -204,7 +210,7 @@ export default function WorkoutListView() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <PullToRefresh onRefresh={handleRefresh} className="flex min-h-[calc(100dvh-4rem)] flex-col">
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur-md">
         <h2 className="text-lg font-bold">운동 기록</h2>
@@ -358,7 +364,7 @@ export default function WorkoutListView() {
           onClose={() => setCalendarOpen(false)}
         />
       )}
-    </div>
+    </PullToRefresh>
   );
 }
 

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2 } from "lucide-react";
+import { queryKeys } from "@/lib/queries";
 
 interface Props {
   sessionId: string;
@@ -27,13 +29,37 @@ export default function CorrectionChat({ sessionId }: Props) {
     Array<{ role: "user" | "ai"; text: string }>
   >([]);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const isMobile = useCallback(() => {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }, []);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function autoResize() {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 120) + "px";
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (isMobile()) return; // 모바일: Enter는 기본 줄바꿈, 버튼으로만 제출
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }
+
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!message.trim() || loading) return;
 
     const userMessage = message.trim();
     setMessage("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setHistory((h) => [...h, { role: "user", text: userMessage }]);
     setLoading(true);
 
@@ -48,7 +74,9 @@ export default function CorrectionChat({ sessionId }: Props) {
 
       if (data.success) {
         setHistory((h) => [...h, { role: "ai", text: data.summary }]);
-        router.refresh(); // Refresh server component data
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workouts.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+        router.refresh();
       } else {
         setHistory((h) => [
           ...h,
@@ -93,13 +121,18 @@ export default function CorrectionChat({ sessionId }: Props) {
       )}
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          type="text"
+      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        <textarea
+          ref={textareaRef}
+          rows={1}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            autoResize();
+          }}
+          onKeyDown={handleKeyDown}
           placeholder="예: 체스트 프레스 말고 인클라인 머신 프레스였어"
-          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           disabled={loading}
         />
         <button

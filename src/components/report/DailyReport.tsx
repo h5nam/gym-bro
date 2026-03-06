@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 import { Loader2, BotMessageSquare, Dumbbell, Heart, Apple, Battery, Sparkles, Play, CalendarPlus } from "lucide-react";
 import type { TomorrowPlan } from "@/lib/ai/schemas";
 import { queryKeys, fetchReportDates, fetchDailyReport } from "@/lib/queries";
@@ -139,6 +140,15 @@ export default function DailyReport() {
     {} as Record<string, AgentFeedback[]>
   );
 
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.dates() }),
+      selectedDate
+        ? queryClient.invalidateQueries({ queryKey: queryKeys.reports.daily(selectedDate) })
+        : Promise.resolve(),
+    ]);
+  }, [queryClient, selectedDate]);
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -148,7 +158,7 @@ export default function DailyReport() {
   }
 
   return (
-    <div className="space-y-5">
+    <PullToRefresh onRefresh={handleRefresh} className="space-y-5">
       {/* Date Carousel */}
       {dates.length > 0 && (
         <div
@@ -367,6 +377,6 @@ export default function DailyReport() {
           )}
         </>
       )}
-    </div>
+    </PullToRefresh>
   );
 }

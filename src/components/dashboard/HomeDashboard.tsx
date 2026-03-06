@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 import Link from "next/link";
 import {
   Bell,
@@ -105,6 +106,7 @@ function formatDuration(seconds: number): string {
 // --- Main Component ---
 
 export default function HomeDashboard() {
+  const queryClient = useQueryClient();
   const { data: initialData, isLoading: dashboardLoading } = useQuery<InitialData>({
     queryKey: queryKeys.dashboard.all,
     queryFn: fetchDashboard,
@@ -129,7 +131,12 @@ export default function HomeDashboard() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const [chatCursor, setChatCursor] = useState<string | null>(null);
+  const [chatHasMore, setChatHasMore] = useState(false);
+  const [chatInitialized, setChatInitialized] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatMainRef = useRef<HTMLElement>(null);
 
   // Sync state
   const [syncing, setSyncing] = useState(false);
@@ -188,6 +195,62 @@ export default function HomeDashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // Load chat history from DB
+  const loadChatHistory = useCallback(
+    async (cursor?: string | null) => {
+      setChatHistoryLoading(true);
+      try {
+        const params = new URLSearchParams({ limit: "30" });
+        if (cursor) params.set("cursor", cursor);
+        const res = await fetch(`/api/ai/chat?${params}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const msgs: ChatMessage[] = (data.messages ?? []).map(
+          (m: { role: string; content: string }) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })
+        );
+        if (cursor) {
+          // Prepend older messages
+          setChatMessages((prev) => [...msgs, ...prev]);
+        } else {
+          setChatMessages(msgs);
+        }
+        setChatCursor(data.nextCursor ?? null);
+        setChatHasMore(data.hasMore ?? false);
+      } catch {
+        // silent fail for history load
+      } finally {
+        setChatHistoryLoading(false);
+      }
+    },
+    []
+  );
+
+  // Load history when chat opens for the first time
+  useEffect(() => {
+    if (chatOpen && !chatInitialized) {
+      setChatInitialized(true);
+      loadChatHistory();
+    }
+  }, [chatOpen, chatInitialized, loadChatHistory]);
+
+  // Load older messages on scroll to top
+  const handleChatScroll = useCallback(async () => {
+    const el = chatMainRef.current;
+    if (!el || !chatHasMore || chatHistoryLoading) return;
+    if (el.scrollTop < 50) {
+      const prevHeight = el.scrollHeight;
+      await loadChatHistory(chatCursor);
+      requestAnimationFrame(() => {
+        if (chatMainRef.current) {
+          chatMainRef.current.scrollTop = chatMainRef.current.scrollHeight - prevHeight;
+        }
+      });
+    }
+  }, [chatHasMore, chatHistoryLoading, chatCursor, loadChatHistory]);
+
   // Handle chat send
   async function handleChatSend() {
     const msg = chatInput.trim();
@@ -231,6 +294,8 @@ export default function HomeDashboard() {
       const data = await res.json();
       if (data.success) {
         setSyncResult(`${data.synced}건 동기화 완료`);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workouts.all });
       } else {
         setSyncResult(`실패: ${data.error}`);
       }
@@ -254,6 +319,10 @@ export default function HomeDashboard() {
     month: "long",
   });
 
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+  }, [queryClient]);
+
   if (dashboardLoading || !initialData) {
     return (
       <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center">
@@ -263,7 +332,8 @@ export default function HomeDashboard() {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] flex flex-col">
+    <>
+    <PullToRefresh onRefresh={handleRefresh} className="min-h-[calc(100dvh-4rem)] flex flex-col">
       {/* A. Header */}
       <header className="flex items-center justify-between p-4 pt-6">
         <div className="flex items-center gap-3">
@@ -672,6 +742,8 @@ export default function HomeDashboard() {
         <div className="h-4" />
       </main>
 
+    </PullToRefresh>
+
       {/* Chat Full-Screen View */}
       {chatOpen && (
         <div className="fixed inset-0 z-50 flex justify-center bg-background">
@@ -705,7 +777,7 @@ export default function HomeDashboard() {
             </header>
 
             {/* Chat Messages */}
-            <main className="flex-1 space-y-5 overflow-y-auto p-4">
+            <main ref={chatMainRef} onScroll={handleChatScroll} className="flex-1 space-y-5 overflow-y-auto p-4">
               {/* Date Divider */}
               <div className="flex justify-center">
                 <span className="rounded-full bg-secondary/80 px-3 py-1 text-[11px] font-bold uppercase tracking-tight text-muted-foreground">
@@ -716,8 +788,31 @@ export default function HomeDashboard() {
                 </span>
               </div>
 
+              {/* Load Older Messages */}
+              {chatHasMore && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => loadChatHistory(chatCursor)}
+                    disabled={chatHistoryLoading}
+                    className="rounded-full bg-secondary/80 px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                  >
+                    {chatHistoryLoading ? (
+                      <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+                    ) : null}
+                    이전 대화 보기
+                  </button>
+                </div>
+              )}
+
+              {/* History Loading */}
+              {chatHistoryLoading && chatMessages.length === 0 && (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
               {/* Empty State */}
-              {chatMessages.length === 0 && (
+              {chatMessages.length === 0 && !chatHistoryLoading && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
                     <BotMessageSquare className="h-8 w-8 text-primary/50" />
@@ -811,19 +906,24 @@ export default function HomeDashboard() {
                   ))}
                 </div>
               )}
-              <div className="flex items-center gap-2 rounded-2xl border border-transparent bg-secondary/50 px-3 py-2 transition-all focus-within:border-primary/50">
-                <input
-                  type="text"
+              <div className="flex items-end gap-2 rounded-2xl border border-transparent bg-secondary/50 px-3 py-2 transition-all focus-within:border-primary/50">
+                <textarea
+                  rows={1}
                   value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
+                  onChange={(e) => {
+                    setChatInput(e.target.value);
+                    // Auto-resize
+                    e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault();
                       handleChatSend();
                     }
                   }}
                   placeholder="질문하기..."
-                  className="flex-1 border-none bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+                  className="flex-1 resize-none border-none bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
                 />
                 <button
                   onClick={handleChatSend}
@@ -837,7 +937,7 @@ export default function HomeDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
