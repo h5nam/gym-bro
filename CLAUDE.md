@@ -61,7 +61,7 @@ Four specialist agents (Gemini Flash) run in parallel via `Promise.all`, then an
 ### AI Prompts (`src/lib/ai/prompts/`)
 
 Builder functions for Gemini prompts:
-- `normalize.ts` — raw Garmin → structured workout
+- `normalize.ts` — raw Garmin → structured workout (`trimExerciseSets()`로 필요 필드만 추출 후 compact JSON 전달)
 - `correct.ts` — 사용자 수정 요청 처리
 - `chat.ts` — AI 코치 대화
 - `meal-parse.ts` — 텍스트 식단 파싱
@@ -137,3 +137,6 @@ Builder functions for Gemini prompts:
 - Vercel Cron configured in `vercel.json` (daily 21:00 UTC), protected by `CRON_SECRET` header
 - body-metrics API: DESC 정렬 + limit(30) → reverse()로 최신 30건을 시간순 반환
 - 유산소 관련 상수/유틸은 `constants.ts`에서 import (각 파일에 중복 정의 금지)
+- Garmin raw payload(`exercise_sets_payload`)는 반드시 필요 필드만 추출 후 AI에 전달 (토큰 절약 + timeout 방지)
+- WorkoutDetailView: 자연어 수정 완료 시 모달 표시 → 확인 시 `window.location.reload()` (localSets state 갱신 필요)
+- Vercel Hobby 플랜: Serverless Function `maxDuration` 최대 60초 제한

@@ -1,3 +1,32 @@
+/** Garmin exerciseSets payload에서 정규화에 필요한 필드만 추출 */
+function trimExerciseSets(raw: Record<string, unknown>): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload = raw as any;
+
+  function mapExercise(ex: Record<string, unknown>) {
+    return {
+      exerciseType: ex.exerciseType,
+      exerciseName: ex.exerciseName ?? ex.exerciseCategory,
+      sets: Array.isArray(ex.sets)
+        ? ex.sets.map((s: Record<string, unknown>) => ({
+            setNumber: s.setNumber,
+            weight: s.weight,
+            repetitionCount: s.repetitionCount,
+            startTime: s.startTime,
+          }))
+        : undefined,
+    };
+  }
+
+  const arr = Array.isArray(payload.exerciseSets)
+    ? payload.exerciseSets
+    : Array.isArray(payload)
+      ? payload
+      : null;
+
+  return arr ? arr.map(mapExercise) : payload;
+}
+
 export function buildNormalizePrompt(
   rawExerciseSets: Record<string, unknown>,
   exerciseCatalog: Array<{ name_ko: string; name_en: string; muscle_group_primary: string }>
@@ -5,6 +34,8 @@ export function buildNormalizePrompt(
   const catalogStr = exerciseCatalog
     .map((e) => `- ${e.name_ko} (${e.name_en}) [${e.muscle_group_primary}]`)
     .join("\n");
+
+  const trimmed = trimExerciseSets(rawExerciseSets);
 
   return `당신은 운동 기록 정규화 전문가입니다.
 
@@ -23,7 +54,7 @@ export function buildNormalizePrompt(
 ${catalogStr}
 
 ## Raw 데이터
-${JSON.stringify(rawExerciseSets, null, 2)}
+${JSON.stringify(trimmed)}
 
 정규화된 결과를 JSON으로 반환해주세요.`;
 }

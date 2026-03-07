@@ -62,12 +62,12 @@ export default function LoginPage() {
               <Dumbbell className="h-8 w-8 text-primary" />
             </div>
             <h1 className="mb-2 text-3xl font-bold leading-tight text-foreground">
-              오직 h5nam을 위한
+              오직 hona.mind을 위한
               <br />
               운동 코치 앱
             </h1>
             <p className="text-sm font-medium tracking-widest text-primary/70 uppercase">
-              by h5nam
+              by hona.mind
             </p>
           </div>
 

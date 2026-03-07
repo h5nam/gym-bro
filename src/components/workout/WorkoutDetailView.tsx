@@ -231,6 +231,12 @@ export default function WorkoutDetailView({
   const [aiFeedback, setAiFeedback] = useState(session.ai_session_feedback);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // Correction complete modal
+  const [correctionModal, setCorrectionModal] = useState<{
+    open: boolean;
+    summary: string;
+  }>({ open: false, summary: "" });
+
   const startDate = parseKST(session.started_at);
   const isDraft = status === "draft";
 
@@ -325,7 +331,7 @@ export default function WorkoutDetailView({
 
       if (data.success) {
         setChatHistory((h) => [...h, { role: "ai", text: data.summary }]);
-        router.refresh();
+        setCorrectionModal({ open: true, summary: data.summary });
       } else {
         setChatHistory((h) => [
           ...h,
@@ -479,6 +485,34 @@ export default function WorkoutDetailView({
                 </div>
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Correction Complete Modal */}
+      {correctionModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-positive/20">
+                <Check className="h-5 w-5 text-positive" />
+              </div>
+              <h3 className="text-lg font-bold">수정 완료</h3>
+            </div>
+            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+              {correctionModal.summary}
+            </p>
+            <button
+              onClick={() => {
+                setCorrectionModal({ open: false, summary: "" });
+                // full reload 필요: localSets 등 useState 초기값이 서버 props에서 오므로
+                // router.refresh()만으로는 클라이언트 state가 갱신되지 않음
+                window.location.reload();
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}
