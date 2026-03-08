@@ -80,6 +80,31 @@ export async function POST(request: Request) {
         .single();
 
       if (existing) {
+        // Re-fetch exercise sets if missing for strength training
+        if (
+          (workout.activityType === "strength_training" ||
+            workout.activityType === "STRENGTH_TRAINING")
+        ) {
+          const { data: rawRow } = await supabase
+            .from("workout_sessions_raw")
+            .select("exercise_sets_payload")
+            .eq("id", existing.id)
+            .single();
+
+          if (rawRow && !rawRow.exercise_sets_payload) {
+            console.log(`[Sync] Re-fetching missing exerciseSets for ${workout.sourceId}...`);
+            const exerciseSets = await connector.fetchExerciseSets(workout.sourceId);
+            if (exerciseSets) {
+              await supabase
+                .from("workout_sessions_raw")
+                .update({ exercise_sets_payload: exerciseSets, processed: false })
+                .eq("id", existing.id);
+              console.log(`[Sync] Updated exerciseSets for ${workout.sourceId}`);
+              synced++;
+              continue;
+            }
+          }
+        }
         skipped++;
         continue;
       }
@@ -94,7 +119,11 @@ export async function POST(request: Request) {
         exerciseSetsPayload = await connector.fetchExerciseSets(
           workout.sourceId
         );
-        console.log(`[Sync] exerciseSets result:`, exerciseSetsPayload ? "OK" : "null");
+        if (exerciseSetsPayload) {
+          console.log(`[Sync] exerciseSets result: OK`);
+        } else {
+          console.warn(`[Sync] ⚠️ exerciseSets is NULL for strength_training ${workout.sourceId} — 운동 세부데이터 누락`);
+        }
       }
 
       // Store raw data

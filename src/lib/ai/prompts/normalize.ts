@@ -3,28 +3,29 @@ function trimExerciseSets(raw: Record<string, unknown>): unknown {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload = raw as any;
 
-  function mapExercise(ex: Record<string, unknown>) {
-    return {
-      exerciseType: ex.exerciseType,
-      exerciseName: ex.exerciseName ?? ex.exerciseCategory,
-      sets: Array.isArray(ex.sets)
-        ? ex.sets.map((s: Record<string, unknown>) => ({
-            setNumber: s.setNumber,
-            weight: s.weight,
-            repetitionCount: s.repetitionCount,
-            startTime: s.startTime,
-          }))
-        : undefined,
-    };
-  }
-
   const arr = Array.isArray(payload.exerciseSets)
     ? payload.exerciseSets
     : Array.isArray(payload)
       ? payload
       : null;
 
-  return arr ? arr.map(mapExercise) : payload;
+  if (!arr) return payload;
+
+  // Garmin exerciseSets: flat array where each item is a single set
+  // { weight, setType, exercises: [{name, category}], repetitionCount, startTime }
+  return arr
+    .filter((s: Record<string, unknown>) => s.setType === "ACTIVE")
+    .map((s: Record<string, unknown>) => {
+      const exercises = Array.isArray(s.exercises) ? s.exercises : [];
+      const exercise = exercises[0] as Record<string, string> | undefined;
+      return {
+        exerciseName: exercise?.name ?? "UNKNOWN",
+        category: exercise?.category,
+        weight: s.weight,
+        repetitionCount: s.repetitionCount,
+        startTime: s.startTime,
+      };
+    });
 }
 
 export function buildNormalizePrompt(
