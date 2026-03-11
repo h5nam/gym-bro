@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { bodybuildingAgent } from "@/lib/ai/agents/bodybuilding";
 import { sportsMedAgent } from "@/lib/ai/agents/sports-med";
 import { nutritionAgent } from "@/lib/ai/agents/nutrition";
@@ -15,7 +15,7 @@ const agents = [bodybuildingAgent, sportsMedAgent, nutritionAgent, recoveryAgent
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

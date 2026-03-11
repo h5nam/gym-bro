@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Loader2 } from "lucide-react";
 import { queryKeys } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface Props {
   rawSessionId: string;
@@ -21,7 +22,7 @@ export default function NormalizeButton({ rawSessionId }: Props) {
     setError(null);
 
     try {
-      const res = await fetch("/api/ai/normalize", {
+      const res = await fetchWithAuth("/api/ai/normalize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rawSessionId }),

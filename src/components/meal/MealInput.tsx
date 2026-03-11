@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Loader2 } from "lucide-react";
+import { fetchWithAuth } from "@/lib/fetch";
 
 const mealTypes = [
   { value: "breakfast", label: "아침" },
@@ -26,7 +27,7 @@ export default function MealInput() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/meals", {
+      const res = await fetchWithAuth("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text.trim(), mealType }),

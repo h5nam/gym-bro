@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateSessionFeedback, generateCardioSessionFeedback } from "@/lib/ai/session-feedback";
 import { CARDIO_TYPES, extractCardioMetrics, EMPTY_CARDIO_METRICS } from "@/lib/constants";
 import { NextRequest, NextResponse } from "next/server";
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
     }
 
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

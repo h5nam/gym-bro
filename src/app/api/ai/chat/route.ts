@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateChat } from "@/lib/ai/gemini";
 import { buildChatSystemPrompt, type ChatContext } from "@/lib/ai/prompts/chat";
 import { getTodayKST } from "@/lib/date-utils";
@@ -12,7 +12,7 @@ const HISTORY_LIMIT = 20; // 최근 N개 메시지를 AI 컨텍스트로 전달
 // GET: 채팅 히스토리 조회 (커서 기반 페이지네이션)
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 // POST: 메시지 전송 + AI 응답 생성 + DB 저장
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

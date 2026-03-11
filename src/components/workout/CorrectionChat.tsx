@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2 } from "lucide-react";
 import { queryKeys } from "@/lib/queries";
+import { isNativePlatform } from "@/lib/platform";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface Props {
   sessionId: string;
@@ -32,6 +34,7 @@ export default function CorrectionChat({ sessionId }: Props) {
   const queryClient = useQueryClient();
 
   const isMobile = useCallback(() => {
+    if (isNativePlatform()) return true;
     return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   }, []);
 
@@ -64,7 +67,7 @@ export default function CorrectionChat({ sessionId }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/workouts/${sessionId}/correct`, {
+      const res = await fetchWithAuth(`/api/workouts/${sessionId}/correct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage }),

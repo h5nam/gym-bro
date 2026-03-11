@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface Props {
   sessionId: string;
@@ -32,7 +33,7 @@ export default function ConfirmButton({ sessionId }: Props) {
       if (error) throw error;
 
       // Trigger AI analysis
-      await fetch("/api/ai/analyze", {
+      await fetchWithAuth("/api/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),

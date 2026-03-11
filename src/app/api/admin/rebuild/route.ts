@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateStructured } from "@/lib/ai/gemini";
 import { NormalizedWorkoutSchema } from "@/lib/ai/schemas";
 import type { NormalizedSet } from "@/lib/ai/schemas";
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const supabase = await createClient();
+  const supabase = await getApiClient(request);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });

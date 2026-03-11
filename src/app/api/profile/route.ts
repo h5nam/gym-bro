@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,9 +12,9 @@ const ProfileUpdateSchema = z.object({
   experienceLevel: z.enum(["beginner", "intermediate", "advanced"]).nullable().optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -47,7 +47,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

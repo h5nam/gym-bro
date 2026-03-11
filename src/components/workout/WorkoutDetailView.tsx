@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { fetchWithAuth } from "@/lib/fetch";
 
 /* ── Types ── */
 
@@ -322,7 +323,7 @@ export default function WorkoutDetailView({
     setChatLoading(true);
 
     try {
-      const res = await fetch(`/api/workouts/${session.id}/correct`, {
+      const res = await fetchWithAuth(`/api/workouts/${session.id}/correct`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage }),
@@ -351,7 +352,7 @@ export default function WorkoutDetailView({
   async function handleGenerateFeedback() {
     setFeedbackLoading(true);
     try {
-      const res = await fetch("/api/ai/session-feedback", {
+      const res = await fetchWithAuth("/api/ai/session-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: session.id }),

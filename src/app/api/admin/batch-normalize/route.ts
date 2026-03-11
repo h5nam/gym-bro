@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateStructured } from "@/lib/ai/gemini";
 import { NormalizedWorkoutSchema } from "@/lib/ai/schemas";
 import { buildNormalizePrompt } from "@/lib/ai/prompts/normalize";
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
     }
 
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

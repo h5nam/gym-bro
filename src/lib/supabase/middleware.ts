@@ -11,6 +11,12 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // 네이티브 앱의 Bearer 토큰 인증 요청은 쿠키 세션 갱신 불필요
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ") && request.nextUrl.pathname.startsWith("/api/")) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

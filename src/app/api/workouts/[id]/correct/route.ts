@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateStructured } from "@/lib/ai/gemini";
 import { CorrectionResultSchema, type NormalizedSet } from "@/lib/ai/schemas";
 import { buildCorrectionPrompt } from "@/lib/ai/prompts/correct";
@@ -12,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

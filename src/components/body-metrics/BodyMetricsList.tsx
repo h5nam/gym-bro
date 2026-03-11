@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { User, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface BodyMetric {
   id: string;
@@ -19,7 +20,7 @@ export default function BodyMetricsList() {
   useEffect(() => {
     async function fetchMetrics() {
       try {
-        const res = await fetch("/api/body-metrics");
+        const res = await fetchWithAuth("/api/body-metrics");
         const data = await res.json();
         setMetrics(data.metrics ?? []);
       } catch {

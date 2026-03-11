@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { queryKeys } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface SyncButtonProps {
   variant?: "compact" | "full";
@@ -19,7 +20,7 @@ export default function SyncButton({ variant = "compact" }: SyncButtonProps) {
     setResult(null);
 
     try {
-      const res = await fetch("/api/sync/garmin", {
+      const res = await fetchWithAuth("/api/sync/garmin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullSync: true }),

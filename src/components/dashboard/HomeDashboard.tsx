@@ -32,6 +32,7 @@ import {
   parseKST,
 } from "@/lib/date-utils";
 import { queryKeys, fetchDashboard } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 import ReactMarkdown from "react-markdown";
 
 // --- Types ---
@@ -150,7 +151,7 @@ export default function HomeDashboard() {
   const fetchMeals = useCallback(async (dateStr: string) => {
     setLoadingMeals(true);
     try {
-      const res = await fetch(`/api/meals?date=${dateStr}`);
+      const res = await fetchWithAuth(`/api/meals?date=${dateStr}`);
       const data = await res.json();
       if (data.meals && data.meals.length > 0) {
         const totals = data.meals.reduce(
@@ -202,7 +203,7 @@ export default function HomeDashboard() {
       try {
         const params = new URLSearchParams({ limit: "30" });
         if (cursor) params.set("cursor", cursor);
-        const res = await fetch(`/api/ai/chat?${params}`);
+        const res = await fetchWithAuth(`/api/ai/chat?${params}`);
         if (!res.ok) return;
         const data = await res.json();
         const msgs: ChatMessage[] = (data.messages ?? []).map(
@@ -261,7 +262,7 @@ export default function HomeDashboard() {
     setChatLoading(true);
 
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await fetchWithAuth("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg }),
@@ -286,7 +287,7 @@ export default function HomeDashboard() {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const res = await fetch("/api/sync/garmin", {
+      const res = await fetchWithAuth("/api/sync/garmin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullSync: true }),

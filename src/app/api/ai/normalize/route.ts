@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateStructured } from "@/lib/ai/gemini";
 import { NormalizedWorkoutSchema } from "@/lib/ai/schemas";
 import { buildNormalizePrompt } from "@/lib/ai/prompts/normalize";
@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

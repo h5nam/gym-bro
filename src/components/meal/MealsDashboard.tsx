@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isNativePlatform } from "@/lib/platform";
 import {
   DAY_NAMES,
   getWeekDates,
@@ -28,6 +29,7 @@ import {
   toDateString,
 } from "@/lib/date-utils";
 import { queryKeys, fetchMealsByDate, fetchMealDates } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 
 // --- Types ---
 
@@ -193,6 +195,39 @@ export default function MealsDashboard() {
     queryClient.invalidateQueries({ queryKey: queryKeys.meals.dates() });
   }
 
+  // --- Native camera ---
+
+  async function handleNativeCamera() {
+    try {
+      const { Camera: CapCamera, CameraResultType, CameraSource } = await import("@capacitor/camera");
+      const photo = await CapCamera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Prompt, // 카메라 or 갤러리 선택
+        width: 1024,
+        height: 1024,
+      });
+      if (photo.base64String) {
+        const mimeType = `image/${photo.format || "jpeg"}`;
+        setImageBase64(photo.base64String);
+        setImageMimeType(mimeType);
+        setImagePreview(`data:${mimeType};base64,${photo.base64String}`);
+        setPendingResult(null);
+      }
+    } catch {
+      // 사용자가 취소한 경우 무시
+    }
+  }
+
+  function handleCameraClick() {
+    if (isNativePlatform()) {
+      handleNativeCamera();
+    } else {
+      fileInputRef.current?.click();
+    }
+  }
+
   // --- Image handling ---
 
   async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -225,7 +260,7 @@ export default function MealsDashboard() {
     setAnalyzing(true);
     setErrorMsg(null);
     try {
-      const res = await fetch("/api/meals/analyze-image", {
+      const res = await fetchWithAuth("/api/meals/analyze-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -253,7 +288,7 @@ export default function MealsDashboard() {
     setAnalyzing(true);
     setErrorMsg(null);
     try {
-      const res = await fetch("/api/meals", {
+      const res = await fetchWithAuth("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -286,7 +321,7 @@ export default function MealsDashboard() {
         text.trim() ||
         pendingResult.items.map((i) => i.name).join(", ") + " (사진 분석)";
 
-      const res = await fetch("/api/meals", {
+      const res = await fetchWithAuth("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -459,7 +494,7 @@ export default function MealsDashboard() {
               disabled={analyzing || submitting}
             />
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={handleCameraClick}
               className="absolute bottom-3 right-3 rounded-full bg-primary/20 p-2.5 text-primary transition-colors hover:bg-primary/30"
               title="사진으로 분석"
             >

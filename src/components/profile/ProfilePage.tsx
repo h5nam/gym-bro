@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@supabase/ssr";
+import { fetchWithAuth } from "@/lib/fetch";
 
 // --- Types ---
 
@@ -70,7 +71,7 @@ export default function ProfilePage({
     setSaved(false);
 
     try {
-      const res = await fetch("/api/profile", {
+      const res = await fetchWithAuth("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

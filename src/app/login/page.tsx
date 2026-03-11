@@ -1,9 +1,10 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dumbbell, Mail, Lock, Eye, EyeOff, Shield, Zap, Award } from "lucide-react";
+import { isNativePlatform } from "@/lib/platform";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,8 +35,52 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  // 네이티브 앱: 딥링크 콜백으로 OAuth 세션 처리
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+
+    let cleanup: (() => void) | undefined;
+
+    (async () => {
+      const { App } = await import("@capacitor/app");
+      const listener = await App.addListener("appUrlOpen", async ({ url }) => {
+        // gymbro://auth/callback#access_token=...&refresh_token=...
+        const hashParams = new URLSearchParams(url.split("#")[1] || "");
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+
+        if (accessToken && refreshToken) {
+          const supabase = createClient();
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          router.push("/dashboard");
+        }
+      });
+      cleanup = () => listener.remove();
+    })();
+
+    return () => cleanup?.();
+  }, [router]);
+
   async function handleGoogleLogin() {
     const supabase = createClient();
+
+    if (isNativePlatform()) {
+      // 네이티브: 인앱 브라우저로 OAuth → 딥링크 콜백
+      const { data } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: "gymbro://auth/callback",
+          skipBrowserRedirect: true,
+        },
+      });
+      if (data.url) {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: data.url });
+      }
+      return;
+    }
+
+    // 웹: 기존 동작
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

@@ -40,3 +40,7 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# capacitor native projects
+/ios/
+/android/

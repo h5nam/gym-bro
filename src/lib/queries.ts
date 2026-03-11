@@ -1,3 +1,5 @@
+import { fetchWithAuth } from "@/lib/fetch";
+
 // --- Response types ---
 
 export interface DashboardResponse {
@@ -108,43 +110,43 @@ export const queryKeys = {
 // --- Typed fetch helpers ---
 
 export async function fetchDashboard(): Promise<DashboardResponse> {
-  const res = await fetch("/api/dashboard");
+  const res = await fetchWithAuth("/api/dashboard");
   if (!res.ok) throw new Error("Failed to fetch dashboard");
   return res.json();
 }
 
 export async function fetchWorkouts(): Promise<WorkoutsResponse> {
-  const res = await fetch("/api/workouts");
+  const res = await fetchWithAuth("/api/workouts");
   if (!res.ok) throw new Error("Failed to fetch workouts");
   return res.json();
 }
 
 export async function fetchMealsByDate(date: string): Promise<MealsResponse> {
-  const res = await fetch(`/api/meals?date=${date}`);
+  const res = await fetchWithAuth(`/api/meals?date=${date}`);
   if (!res.ok) throw new Error("Failed to fetch meals");
   return res.json();
 }
 
 export async function fetchMealDates(): Promise<{ dates: string[] }> {
-  const res = await fetch("/api/meals/dates");
+  const res = await fetchWithAuth("/api/meals/dates");
   if (!res.ok) throw new Error("Failed to fetch meal dates");
   return res.json();
 }
 
 export async function fetchBodyMetrics(): Promise<BodyMetricsResponse> {
-  const res = await fetch("/api/body-metrics");
+  const res = await fetchWithAuth("/api/body-metrics");
   if (!res.ok) throw new Error("Failed to fetch body metrics");
   return res.json();
 }
 
 export async function fetchReportDates(): Promise<{ dates: string[] }> {
-  const res = await fetch("/api/ai/report?type=dates");
+  const res = await fetchWithAuth("/api/ai/report?type=dates");
   if (!res.ok) throw new Error("Failed to fetch report dates");
   return res.json();
 }
 
 export async function fetchDailyReport(date: string): Promise<DailyReportResponse> {
-  const res = await fetch(`/api/ai/report?type=daily&date=${date}`);
+  const res = await fetchWithAuth(`/api/ai/report?type=daily&date=${date}`);
   if (!res.ok) throw new Error("Failed to fetch report");
   return res.json();
 }

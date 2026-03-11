@@ -6,6 +6,7 @@ import PullToRefresh from "@/components/ui/PullToRefresh";
 import { Loader2, BotMessageSquare, Dumbbell, Heart, Apple, Battery, Sparkles, Play, CalendarPlus } from "lucide-react";
 import type { TomorrowPlan } from "@/lib/ai/schemas";
 import { queryKeys, fetchReportDates, fetchDailyReport } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface CoachingHighlight {
   title: string;
@@ -112,7 +113,7 @@ export default function DailyReport() {
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const res = await fetch("/api/ai/analyze", {
+      const res = await fetchWithAuth("/api/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),

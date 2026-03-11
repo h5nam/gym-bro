@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { UtensilsCrossed } from "lucide-react";
+import { fetchWithAuth } from "@/lib/fetch";
 
 interface MealLog {
   id: string;
@@ -32,7 +33,7 @@ export default function MealList() {
   useEffect(() => {
     async function fetchMeals() {
       try {
-        const res = await fetch("/api/meals");
+        const res = await fetchWithAuth("/api/meals");
         const data = await res.json();
         setMeals(data.meals ?? []);
       } catch {

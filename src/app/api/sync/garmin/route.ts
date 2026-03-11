@@ -1,16 +1,16 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { getGarminConnector } from "@/lib/connectors/garmin";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const forceFullSync = body?.fullSync === true;
 
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
 
     // Try to update sync status to error
     try {
-      const supabase = await createClient();
+      const supabase = await getApiClient(request);
       const {
         data: { user },
       } = await supabase.auth.getUser();

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getApiClient } from "@/lib/supabase/api-auth";
 import { generateStructuredWithImage } from "@/lib/ai/gemini";
 import { MealParseResultSchema } from "@/lib/ai/schemas";
 import { buildMealImageParsePrompt } from "@/lib/ai/prompts/meal-image-parse";
@@ -9,7 +9,7 @@ export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getApiClient(request);
     const {
       data: { user },
     } = await supabase.auth.getUser();

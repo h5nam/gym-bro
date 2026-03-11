@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Save, Loader2, X } from "lucide-react";
 import { queryKeys } from "@/lib/queries";
+import { fetchWithAuth } from "@/lib/fetch";
 
 export default function BodyMetricsForm({
   open,
@@ -35,7 +36,7 @@ export default function BodyMetricsForm({
     setLoading(true);
 
     try {
-      const res = await fetch("/api/body-metrics", {
+      const res = await fetchWithAuth("/api/body-metrics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
