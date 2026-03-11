@@ -81,7 +81,7 @@ Builder functions for Gemini prompts:
 
 ### Supabase
 
-- Browser client: `src/lib/supabase/client.ts` (SSR-aware `createBrowserClient`)
+- Browser client: `src/lib/supabase/client.ts` (cookie-based `createBrowserClient` — 웹/네이티브 모두 동일)
 - Server client: `src/lib/supabase/server.ts` (cookie-based `createServerClient`)
 - All tables have RLS policies; users only access their own data
 - Migrations in `supabase/migrations/` (5 files):
@@ -111,7 +111,7 @@ Builder functions for Gemini prompts:
 ## Conventions
 
 - **Primary language**: Korean (UI, AI prompts, coaching output)
-- **Font**: Pretendard Variable (Korean-first stack)
+- **Font**: Pretendard Variable (Korean-first stack, CDN via `layout.tsx` `<head>`)
 - **Dark theme only**: defined in `src/app/globals.css` via `@theme`
 - **Mobile-first**: designed for phone use with BottomNav
 - Client components use `"use client"` directive; pages are Server Components by default
@@ -140,3 +140,14 @@ Builder functions for Gemini prompts:
 - Garmin raw payload(`exercise_sets_payload`)는 반드시 필요 필드만 추출 후 AI에 전달 (토큰 절약 + timeout 방지)
 - WorkoutDetailView: 자연어 수정 완료 시 모달 표시 → 확인 시 `window.location.reload()` (localSets state 갱신 필요)
 - Vercel Hobby 플랜: Serverless Function `maxDuration` 최대 60초 제한
+
+### Capacitor (iOS/Android)
+
+- **Live URL 모드**: WebView가 Vercel 배포 URL(`gym-bro-nu.vercel.app`)을 로드 — 웹 에셋 번들링 불필요
+- Config: `capacitor.config.ts` (appId: `com.honamind.gymbro`, scheme: `gymbro`)
+- iOS 프로젝트: `ios/` (`.gitignore`에 포함, 로컬에서 `npx cap add ios` + `npx cap sync ios`로 생성)
+- **Safe area**: `globals.css` body에 `env(safe-area-inset-*)` 패딩 적용 (노치/다이나믹 아일랜드 대응)
+- **OAuth 딥링크**: `gymbro://auth/callback` — `Info.plist`에 `CFBundleURLSchemes` 수동 등록 필요
+- **Supabase 클라이언트**: Live URL 모드에서는 웹/네이티브 모두 `createBrowserClient` (쿠키 기반) 사용. localStorage 기반 `createClient`를 쓰면 미들웨어 세션 체크와 충돌하여 로그인 무한 루프 발생
+- iOS 빌드: `npx cap sync ios` → Xcode에서 Archive → App Store Connect 업로드
+- Plugins: App, Browser, Camera, Haptics, Keyboard, PushNotifications, SplashScreen, StatusBar
