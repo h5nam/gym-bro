@@ -15,15 +15,15 @@ function trimExerciseSets(raw: Record<string, unknown>): unknown {
   // { weight, setType, exercises: [{name, category}], repetitionCount, startTime }
   return arr
     .filter((s: Record<string, unknown>) => s.setType === "ACTIVE")
-    .map((s: Record<string, unknown>) => {
+    .map((s: Record<string, unknown>, index: number) => {
       const exercises = Array.isArray(s.exercises) ? s.exercises : [];
       const exercise = exercises[0] as Record<string, string> | undefined;
       return {
+        originalOrder: index,
         exerciseName: exercise?.name ?? "UNKNOWN",
         category: exercise?.category,
         weight: s.weight,
         repetitionCount: s.repetitionCount,
-        startTime: s.startTime,
       };
     });
 }
@@ -47,7 +47,7 @@ export function buildNormalizePrompt(
 1. 운동 종목명은 아래 카탈로그에서 가장 가까운 것을 매칭하세요.
 2. 카탈로그에 없으면 한국어로 적절한 이름을 만드세요.
 3. 워밍업 세트는 본 세트 대비 현저히 가벼운 세트로 판단하세요.
-4. 세트 순서는 원본 시간 순서를 유지하세요.
+4. **[절대 규칙] 세트 순서는 반드시 originalOrder 순서 그대로 출력하세요. 운동 종목별로 재그룹핑하거나 순서를 변경하지 마세요.** 사용자가 실제로 수행한 순서이며, 원본 배열의 순서가 곧 시간 순서입니다. 예: originalOrder 0,1,2,3,4... 순서 그대로 sets 배열에 넣으세요.
 5. 총 볼륨 = 각 세트의 (중량 × 반복)의 합
 6. 세션 이름은 주요 근육군 기반으로 작성 (예: "가슴/삼두", "등/이두")
 

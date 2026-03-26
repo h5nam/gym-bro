@@ -59,7 +59,8 @@ export async function POST(
     }
 
     // Build current sets for prompt
-    const currentSets: NormalizedSet[] = sets.map((s) => ({
+    const currentSets: NormalizedSet[] = sets.map((s, i) => ({
+      originalOrder: i,
       exerciseName: s.exercise_name_display,
       exerciseNameEn: s.exercise_name_raw ?? "",
       setNumber: s.set_number,

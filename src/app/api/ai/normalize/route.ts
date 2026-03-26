@@ -154,8 +154,13 @@ export async function POST(request: NextRequest) {
 
     if (sessionError) throw sessionError;
 
+    // Sort by originalOrder to guarantee Garmin 원본 순서 보존 (AI가 재배열해도 복원)
+    const sortedSets = [...normalized.sets].sort(
+      (a, b) => a.originalOrder - b.originalOrder
+    );
+
     // Insert sets
-    const setsToInsert = normalized.sets.map((set, index) => ({
+    const setsToInsert = sortedSets.map((set, index) => ({
       session_id: session.id,
       exercise_name_raw: set.exerciseNameEn,
       exercise_name_display: set.exerciseName,

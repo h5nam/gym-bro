@@ -4,6 +4,7 @@ import { z } from "zod";
 // Workout Normalization
 // ============================================
 export const NormalizedSetSchema = z.object({
+  originalOrder: z.number().describe("원본 데이터의 originalOrder 값을 그대로 반환 (순서 보존용)"),
   exerciseName: z.string().describe("표준 운동 이름 (한국어)"),
   exerciseNameEn: z.string().describe("Standard exercise name (English)"),
   setNumber: z.number().describe("해당 운동 내 세트 번호"),

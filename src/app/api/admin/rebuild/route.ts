@@ -223,10 +223,15 @@ export async function POST(request: NextRequest) {
           const prompt = buildNormalizePrompt(raw.exercise_sets_payload, catalog ?? []);
           const normalized = await generateStructured(prompt, NormalizedWorkoutSchema);
 
+          // originalOrder로 정렬하여 Garmin 원본 순서 보장
+          const sortedSets = [...normalized.sets].sort(
+            (a, b) => a.originalOrder - b.originalOrder
+          );
+
           // 보정맵 적용
           const corrections = EXERCISE_CORRECTIONS[kstDate];
           const sessionNameOverride = SESSION_NAMES[kstDate];
-          let finalSets = normalized.sets;
+          let finalSets = sortedSets;
 
           if (corrections) {
             finalSets = applyExerciseCorrections(normalized.sets, corrections);
