@@ -363,8 +363,6 @@ export default function WorkoutListView() {
       {/* Calendar Modal */}
       {calendarOpen && (
         <CalendarModal
-          sessions={sessions}
-          rawSessions={rawSessions}
           today={today}
           selectedDate={selectedDate}
           onSelect={handleCalendarSelect}
@@ -378,15 +376,11 @@ export default function WorkoutListView() {
 // --- Calendar Modal ---
 
 function CalendarModal({
-  sessions,
-  rawSessions,
   today,
   selectedDate,
   onSelect,
   onClose,
 }: {
-  sessions: SessionData[];
-  rawSessions: RawSessionData[];
   today: Date;
   selectedDate: Date;
   onSelect: (date: Date) => void;
@@ -395,6 +389,18 @@ function CalendarModal({
   const [calYear, setCalYear] = useState(selectedDate.getFullYear());
   const [calMonth, setCalMonth] = useState(selectedDate.getMonth());
   const [previewDate, setPreviewDate] = useState(selectedDate);
+
+  const calMonthKey = useMemo(() => {
+    return `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
+  }, [calYear, calMonth]);
+
+  const { data: workoutsData } = useQuery({
+    queryKey: queryKeys.workouts.byMonth(calMonthKey),
+    queryFn: () => fetchWorkouts(calMonthKey),
+  });
+
+  const sessions = (workoutsData?.sessions ?? []) as SessionData[];
+  const rawSessions = (workoutsData?.rawSessions ?? []) as RawSessionData[];
 
   const grid = useMemo(
     () => getFullMonthGrid(calYear, calMonth),
