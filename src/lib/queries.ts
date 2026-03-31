@@ -41,6 +41,19 @@ export interface WorkoutsResponse {
   >;
 }
 
+export interface WorkoutDatesResponse {
+  sessions: Array<{
+    id: string;
+    started_at: string;
+    status: string;
+    session_name: string;
+    duration_seconds: number;
+    total_volume_kg: number;
+    muscle_groups: string[] | null;
+  }>;
+  rawDates: string[];
+}
+
 export interface MealsResponse {
   meals: Array<{
     id: string;
@@ -93,6 +106,7 @@ export const queryKeys = {
   workouts: {
     all: ["workouts"] as const,
     byMonth: (month: string) => ["workouts", month] as const,
+    dates: ["workouts", "dates"] as const,
   },
   meals: {
     all: ["meals"] as const,
@@ -120,6 +134,12 @@ export async function fetchWorkouts(month?: string): Promise<WorkoutsResponse> {
   const url = month ? `/api/workouts?month=${month}` : "/api/workouts";
   const res = await fetchWithAuth(url);
   if (!res.ok) throw new Error("Failed to fetch workouts");
+  return res.json();
+}
+
+export async function fetchWorkoutDates(): Promise<WorkoutDatesResponse> {
+  const res = await fetchWithAuth("/api/workouts/dates");
+  if (!res.ok) throw new Error("Failed to fetch workout dates");
   return res.json();
 }
 

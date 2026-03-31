@@ -26,7 +26,7 @@ import {
   calcWeekOffset,
 } from "@/lib/date-utils";
 import { CARDIO_TYPES } from "@/lib/constants";
-import { queryKeys, fetchWorkouts } from "@/lib/queries";
+import { queryKeys, fetchWorkouts, fetchWorkoutDates } from "@/lib/queries";
 import NormalizeButton from "./NormalizeButton";
 import SyncButton from "./SyncButton";
 
@@ -390,17 +390,14 @@ function CalendarModal({
   const [calMonth, setCalMonth] = useState(selectedDate.getMonth());
   const [previewDate, setPreviewDate] = useState(selectedDate);
 
-  const calMonthKey = useMemo(() => {
-    return `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
-  }, [calYear, calMonth]);
-
-  const { data: workoutsData } = useQuery({
-    queryKey: queryKeys.workouts.byMonth(calMonthKey),
-    queryFn: () => fetchWorkouts(calMonthKey),
+  const { data: datesData } = useQuery({
+    queryKey: queryKeys.workouts.dates,
+    queryFn: fetchWorkoutDates,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const sessions = (workoutsData?.sessions ?? []) as SessionData[];
-  const rawSessions = (workoutsData?.rawSessions ?? []) as RawSessionData[];
+  const sessions = (datesData?.sessions ?? []) as SessionData[];
+  const rawDates = datesData?.rawDates ?? [];
 
   const grid = useMemo(
     () => getFullMonthGrid(calYear, calMonth),
@@ -419,14 +416,14 @@ function CalendarModal({
       info.sessions.push(s);
       map.set(key, info);
     }
-    for (const r of rawSessions) {
-      const key = dateKey(parseKST(r.started_at));
+    for (const d of rawDates) {
+      const key = dateKey(parseKST(d));
       const info = map.get(key) || { sessions: [], rawCount: 0 };
       info.rawCount++;
       map.set(key, info);
     }
     return map;
-  }, [sessions, rawSessions]);
+  }, [sessions, rawDates]);
 
   const previewInfo = dateInfo.get(dateKey(previewDate));
   const previewSessions = previewInfo?.sessions ?? [];
