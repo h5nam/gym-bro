@@ -13,20 +13,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Parse month filter (e.g. ?month=2026-03)
+  const monthParam = request.nextUrl.searchParams.get("month");
+  let rangeStart: string | undefined;
+  let rangeEnd: string | undefined;
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    const [y, m] = monthParam.split("-").map(Number);
+    rangeStart = new Date(y, m - 1, 1).toISOString();
+    rangeEnd = new Date(y, m, 1).toISOString();
+  }
+
   // Fetch sessions and raw sessions in parallel
+  let sessionsQuery = supabase
+    .from("workout_sessions")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("started_at", { ascending: false });
+
+  let rawQuery = supabase
+    .from("workout_sessions_raw")
+    .select("id, activity_type, started_at, processed")
+    .eq("user_id", user.id)
+    .eq("processed", false)
+    .order("started_at", { ascending: false });
+
+  if (rangeStart && rangeEnd) {
+    sessionsQuery = sessionsQuery.gte("started_at", rangeStart).lt("started_at", rangeEnd);
+    rawQuery = rawQuery.gte("started_at", rangeStart).lt("started_at", rangeEnd);
+  } else {
+    sessionsQuery = sessionsQuery.limit(50);
+  }
+
   const [sessionsResult, rawSessionsResult] = await Promise.all([
-    supabase
-      .from("workout_sessions")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("started_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("workout_sessions_raw")
-      .select("id, activity_type, started_at, processed")
-      .eq("user_id", user.id)
-      .eq("processed", false)
-      .order("started_at", { ascending: false }),
+    sessionsQuery,
+    rawQuery,
   ]);
 
   const sessions = sessionsResult.data ?? [];

@@ -92,6 +92,7 @@ export const queryKeys = {
   },
   workouts: {
     all: ["workouts"] as const,
+    byMonth: (month: string) => ["workouts", month] as const,
   },
   meals: {
     all: ["meals"] as const,
@@ -115,8 +116,9 @@ export async function fetchDashboard(): Promise<DashboardResponse> {
   return res.json();
 }
 
-export async function fetchWorkouts(): Promise<WorkoutsResponse> {
-  const res = await fetchWithAuth("/api/workouts");
+export async function fetchWorkouts(month?: string): Promise<WorkoutsResponse> {
+  const url = month ? `/api/workouts?month=${month}` : "/api/workouts";
+  const res = await fetchWithAuth(url);
   if (!res.ok) throw new Error("Failed to fetch workouts");
   return res.json();
 }

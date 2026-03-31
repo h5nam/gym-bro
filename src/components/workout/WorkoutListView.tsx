@@ -127,14 +127,6 @@ function getFullMonthGrid(year: number, month: number): CalendarCell[][] {
 
 export default function WorkoutListView() {
   const queryClient = useQueryClient();
-  const { data: workoutsData, isLoading: workoutsLoading } = useQuery({
-    queryKey: queryKeys.workouts.all,
-    queryFn: fetchWorkouts,
-  });
-
-  const sessions = (workoutsData?.sessions ?? []) as SessionData[];
-  const rawSessions = (workoutsData?.rawSessions ?? []) as RawSessionData[];
-  const cardioMetrics: Record<string, CardioMetrics> = workoutsData?.cardioMetrics ?? {};
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -150,6 +142,21 @@ export default function WorkoutListView() {
     d.setDate(d.getDate() + weekOffset * 7);
     return d;
   }, [today, weekOffset]);
+
+  const currentMonth = useMemo(() => {
+    const y = baseDate.getFullYear();
+    const m = String(baseDate.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }, [baseDate]);
+
+  const { data: workoutsData, isLoading: workoutsLoading } = useQuery({
+    queryKey: queryKeys.workouts.byMonth(currentMonth),
+    queryFn: () => fetchWorkouts(currentMonth),
+  });
+
+  const sessions = (workoutsData?.sessions ?? []) as SessionData[];
+  const rawSessions = (workoutsData?.rawSessions ?? []) as RawSessionData[];
+  const cardioMetrics: Record<string, CardioMetrics> = workoutsData?.cardioMetrics ?? {};
 
   const weekDates = useMemo(() => getWeekDates(baseDate), [baseDate]);
 
