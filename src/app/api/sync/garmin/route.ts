@@ -1,5 +1,6 @@
 import { getApiClient } from "@/lib/supabase/api-auth";
 import { getGarminConnector } from "@/lib/connectors/garmin";
+import { CARDIO_TYPE_NAMES } from "@/lib/constants";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Store raw data
-      const { error: insertError } = await supabase
+      const { data: rawRow, error: insertError } = await supabase
         .from("workout_sessions_raw")
         .insert({
           user_id: user.id,
@@ -138,11 +139,44 @@ export async function POST(request: NextRequest) {
           activity_type: workout.activityType,
           started_at: workout.startTime,
           duration_seconds: workout.durationSeconds,
-        });
+        })
+        .select("id")
+        .single();
 
       if (insertError) {
         console.error("Insert error:", insertError);
         continue;
+      }
+
+      // Auto-confirm cardio sessions — no normalization needed
+      if (!exerciseSetsPayload) {
+        const activityType = workout.activityType ?? "unknown";
+        const raw = workout.rawPayload as Record<string, unknown>;
+        const activityName = (raw.activityName as string) ?? activityType;
+        const durationMin = Math.round((workout.durationSeconds ?? 0) / 60);
+        const displayName = CARDIO_TYPE_NAMES[activityType] ?? activityName;
+        const sessionName = `${displayName} ${durationMin}분`;
+
+        await supabase.from("workout_sessions").insert({
+          user_id: user.id,
+          raw_session_id: rawRow.id,
+          session_name: sessionName,
+          muscle_groups: [activityType],
+          started_at: workout.startTime,
+          duration_seconds: workout.durationSeconds,
+          total_volume_kg: 0,
+          total_sets: 0,
+          status: "confirmed",
+          ai_normalized_at: new Date().toISOString(),
+          user_confirmed_at: new Date().toISOString(),
+        });
+
+        await supabase
+          .from("workout_sessions_raw")
+          .update({ processed: true })
+          .eq("id", rawRow.id);
+
+        console.log(`[Sync] Auto-confirmed cardio: ${sessionName}`);
       }
 
       synced++;
