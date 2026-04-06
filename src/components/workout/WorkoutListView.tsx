@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 import Link from "next/link";
 import {
@@ -143,22 +143,52 @@ export default function WorkoutListView() {
     return d;
   }, [today, weekOffset]);
 
-  const currentMonth = useMemo(() => {
-    const y = baseDate.getFullYear();
-    const m = String(baseDate.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  }, [baseDate]);
+  const weekDates = useMemo(() => getWeekDates(baseDate), [baseDate]);
 
-  const { data: workoutsData, isLoading: workoutsLoading } = useQuery({
-    queryKey: queryKeys.workouts.byMonth(currentMonth),
-    queryFn: () => fetchWorkouts(currentMonth),
+  // When a week spans two months (e.g. Mar 29 – Apr 4), fetch both months
+  const weekMonths = useMemo(() => {
+    const first = weekDates[0];
+    const last = weekDates[6];
+    const m1 = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}`;
+    const m2 = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}`;
+    return m1 === m2 ? [m1] : [m1, m2];
+  }, [weekDates]);
+
+  const { data: data1, isLoading: loading1 } = useQuery({
+    queryKey: queryKeys.workouts.byMonth(weekMonths[0]),
+    queryFn: () => fetchWorkouts(weekMonths[0]),
+    placeholderData: keepPreviousData,
   });
 
-  const sessions = (workoutsData?.sessions ?? []) as SessionData[];
-  const rawSessions = (workoutsData?.rawSessions ?? []) as RawSessionData[];
-  const cardioMetrics: Record<string, CardioMetrics> = workoutsData?.cardioMetrics ?? {};
+  const { data: data2, isLoading: loading2 } = useQuery({
+    queryKey: queryKeys.workouts.byMonth(weekMonths[1] ?? ""),
+    queryFn: () => fetchWorkouts(weekMonths[1]!),
+    enabled: weekMonths.length > 1,
+    placeholderData: keepPreviousData,
+  });
 
-  const weekDates = useMemo(() => getWeekDates(baseDate), [baseDate]);
+  // Only show full spinner on very first load, not when navigating between months
+  const workoutsLoading = !data1 && loading1;
+
+  const sessions = useMemo(() => {
+    const s1 = (data1?.sessions ?? []) as SessionData[];
+    const s2 = (data2?.sessions ?? []) as SessionData[];
+    if (s2.length === 0) return s1;
+    const seen = new Set(s1.map((s) => s.id));
+    return [...s1, ...s2.filter((s) => !seen.has(s.id))];
+  }, [data1, data2]);
+
+  const rawSessions = useMemo(() => {
+    const r1 = (data1?.rawSessions ?? []) as RawSessionData[];
+    const r2 = (data2?.rawSessions ?? []) as RawSessionData[];
+    if (r2.length === 0) return r1;
+    const seen = new Set(r1.map((r) => r.id));
+    return [...r1, ...r2.filter((r) => !seen.has(r.id))];
+  }, [data1, data2]);
+
+  const cardioMetrics: Record<string, CardioMetrics> = useMemo(() => {
+    return { ...(data2?.cardioMetrics ?? {}), ...(data1?.cardioMetrics ?? {}) };
+  }, [data1, data2]);
 
   const sessionDateKeys = useMemo(() => {
     const keys = new Set<string>();
