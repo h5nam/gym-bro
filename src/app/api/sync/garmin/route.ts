@@ -11,10 +11,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const forceFullSync = body?.fullSync === true;
 
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
@@ -202,10 +199,7 @@ export async function POST(request: NextRequest) {
 
     // Try to update sync status to error
     try {
-      const supabase = await getApiClient(request);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { supabase, user } = await getApiClient(request);
       if (user) {
         await supabase
           .from("data_sources")

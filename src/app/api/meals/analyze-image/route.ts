@@ -9,10 +9,7 @@ export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json(

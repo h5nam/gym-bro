@@ -23,10 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
     }
 
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
     if (!user) {
       return NextResponse.json(
         { error: "인증이 필요합니다" },

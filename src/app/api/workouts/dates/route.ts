@@ -3,10 +3,7 @@ import { getApiClient } from "@/lib/supabase/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -28,7 +28,7 @@ import {
   dateKey,
   toDateString,
 } from "@/lib/date-utils";
-import { queryKeys, fetchMealsByDate, fetchMealDates } from "@/lib/queries";
+import { queryKeys, fetchMealsByDate } from "@/lib/queries";
 import { fetchWithAuth } from "@/lib/fetch";
 
 // --- Types ---
@@ -151,28 +151,23 @@ export default function MealsDashboard() {
   const queryClient = useQueryClient();
   const currentDateStr = toDateString(selectedDate);
 
-  // Meal data via TanStack Query
+  // Meal data via TanStack Query — single request includes dates
   const { data: mealsData, isLoading: loading } = useQuery({
     queryKey: queryKeys.meals.byDate(currentDateStr),
-    queryFn: () => fetchMealsByDate(currentDateStr),
+    queryFn: () => fetchMealsByDate(currentDateStr, true),
   });
 
   const meals: MealLog[] = mealsData?.meals ?? [];
   const recentItems: RecentItem[] = mealsData?.recentItems ?? [];
 
-  const { data: datesData } = useQuery({
-    queryKey: queryKeys.meals.dates(),
-    queryFn: fetchMealDates,
-  });
-
   const mealDateKeys = useMemo(() => {
     const keys = new Set<string>();
-    for (const dateStr of datesData?.dates ?? []) {
+    for (const dateStr of mealsData?.dates ?? []) {
       const d = new Date(dateStr + "T00:00:00");
       keys.add(dateKey(d));
     }
     return keys;
-  }, [datesData]);
+  }, [mealsData?.dates]);
 
   // Input state
   const [text, setText] = useState("");
@@ -192,7 +187,6 @@ export default function MealsDashboard() {
 
   function invalidateMeals() {
     queryClient.invalidateQueries({ queryKey: queryKeys.meals.byDate(currentDateStr) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.meals.dates() });
   }
 
   // --- Native camera ---
@@ -372,10 +366,7 @@ export default function MealsDashboard() {
   const needsSave = pendingResult && imagePreview;
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.meals.byDate(currentDateStr) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.meals.dates() }),
-    ]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.meals.byDate(currentDateStr) });
   }, [queryClient, currentDateStr]);
 
   return (

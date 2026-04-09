@@ -6,10 +6,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
@@ -48,10 +45,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });

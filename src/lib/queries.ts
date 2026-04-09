@@ -143,8 +143,10 @@ export async function fetchWorkoutDates(): Promise<WorkoutDatesResponse> {
   return res.json();
 }
 
-export async function fetchMealsByDate(date: string): Promise<MealsResponse> {
-  const res = await fetchWithAuth(`/api/meals?date=${date}`);
+export async function fetchMealsByDate(date: string, includeDates?: boolean): Promise<MealsResponse & { dates?: string[] }> {
+  const params = new URLSearchParams({ date });
+  if (includeDates) params.set("includeDates", "1");
+  const res = await fetchWithAuth(`/api/meals?${params}`);
   if (!res.ok) throw new Error("Failed to fetch meals");
   return res.json();
 }

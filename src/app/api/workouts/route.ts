@@ -4,10 +4,7 @@ import { CARDIO_TYPES } from "@/lib/constants";
 
 export async function GET(request: NextRequest) {
   try {
-  const supabase = await getApiClient(request);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getApiClient(request);
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,7 +23,7 @@ export async function GET(request: NextRequest) {
   // Fetch sessions and raw sessions in parallel
   let sessionsQuery = supabase
     .from("workout_sessions")
-    .select("*")
+    .select("id, session_name, muscle_groups, started_at, duration_seconds, total_volume_kg, total_sets, status, raw_session_id")
     .eq("user_id", user.id)
     .order("started_at", { ascending: false });
 

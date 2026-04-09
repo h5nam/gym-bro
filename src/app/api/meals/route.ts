@@ -10,10 +10,7 @@ export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
@@ -91,10 +88,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getApiClient(request);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getApiClient(request);
 
     if (!user) {
       return NextResponse.json({ error: "인증이 필요합니다" }, { status: 401 });
@@ -102,24 +96,32 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date") ?? getTodayKST();
+    const includeDates = searchParams.get("includeDates") === "1";
 
-    const { data: meals } = await supabase
-      .from("meal_logs")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("meal_date", date)
-      .order("created_at", { ascending: true });
-
-    // Fetch recent distinct meals for quick-add
-    const { data: recentMeals } = await supabase
-      .from("meal_logs")
-      .select("raw_text, meal_type, total_calories")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(30);
+    // Run all queries in parallel
+    const [mealsResult, recentResult, datesResult] = await Promise.all([
+      supabase
+        .from("meal_logs")
+        .select("id, meal_type, raw_text, total_calories, total_protein_g, total_carbs_g, total_fat_g, parsed_items, created_at")
+        .eq("user_id", user.id)
+        .eq("meal_date", date)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("meal_logs")
+        .select("raw_text, meal_type, total_calories")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      includeDates
+        ? supabase
+            .from("meal_logs")
+            .select("meal_date")
+            .eq("user_id", user.id)
+        : Promise.resolve({ data: null }),
+    ]);
 
     const seen = new Set<string>();
-    const recentItems = (recentMeals ?? [])
+    const recentItems = (recentResult.data ?? [])
       .filter((m) => {
         if (seen.has(m.raw_text)) return false;
         seen.add(m.raw_text);
@@ -127,7 +129,16 @@ export async function GET(request: NextRequest) {
       })
       .slice(0, 10);
 
-    return NextResponse.json({ meals: meals ?? [], recentItems });
+    const response: Record<string, unknown> = {
+      meals: mealsResult.data ?? [],
+      recentItems,
+    };
+
+    if (includeDates && datesResult.data) {
+      response.dates = [...new Set(datesResult.data.map((d: { meal_date: string }) => d.meal_date))];
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Meal fetch error:", error);
     return NextResponse.json({ error: "조회 실패" }, { status: 500 });
