@@ -12,7 +12,51 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [recoverySuccess, setRecoverySuccess] = useState(false);
   const router = useRouter();
+
+  // Handle recovery hash fragment (type=recovery)
+  useEffect(() => {
+    const hash = window.location.hash.substring(1);
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    if (params.get("type") === "recovery") {
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const supabase = createClient();
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(() => {
+          setRecoveryMode(true);
+          window.history.replaceState(null, "", "/login");
+        });
+      }
+    }
+  }, []);
+
+  async function handlePasswordReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setError("비밀번호는 6자 이상이어야 합니다");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    setRecoverySuccess(true);
+    setLoading(false);
+    setTimeout(() => {
+      router.push("/dashboard");
+      router.refresh();
+    }, 1500);
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -87,6 +131,72 @@ export default function LoginPage() {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+  }
+
+  if (recoveryMode) {
+    return (
+      <div className="relative flex min-h-dvh items-center justify-center overflow-hidden p-4">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-primary/20 blur-[120px]" />
+        </div>
+        <div className="relative z-10 w-full max-w-md px-2">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-2xl backdrop-blur-xl">
+            <div className="mb-8 text-center">
+              <div className="mx-auto mb-6 inline-flex h-16 w-16 items-center justify-center rounded-full border border-primary/20 bg-primary/20 backdrop-blur-sm">
+                <Lock className="h-8 w-8 text-primary" />
+              </div>
+              <h1 className="mb-2 text-2xl font-bold text-foreground">
+                비밀번호 재설정
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                새 비밀번호를 입력해주세요
+              </p>
+            </div>
+            {recoverySuccess ? (
+              <div className="rounded-lg bg-positive/10 p-4 text-center text-sm font-medium text-positive">
+                비밀번호가 변경되었습니다. 대시보드로 이동합니다...
+              </div>
+            ) : (
+              <form onSubmit={handlePasswordReset} className="space-y-5">
+                <div>
+                  <label htmlFor="newPassword" className="mb-2 ml-1 block text-sm font-medium text-muted-foreground">
+                    새 비밀번호
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground/60" />
+                    <input
+                      id="newPassword"
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="w-full rounded-lg border border-primary/15 bg-white/[0.03] py-4 pl-12 pr-12 text-foreground outline-none backdrop-blur-sm transition-all placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/50"
+                      placeholder="6자 이상"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 transition-colors hover:text-primary"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-lg bg-primary py-4 font-bold text-white shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {loading ? "변경 중..." : "비밀번호 변경"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
