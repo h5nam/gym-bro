@@ -126,7 +126,7 @@ export async function generateAndSaveMemory(
 
     const prompt = buildMemoryGenerationPrompt(context);
     const memory = await generateText(prompt, {
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.1-flash-lite-preview",
     });
 
     await supabase

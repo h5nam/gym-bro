@@ -69,6 +69,6 @@ ${context.bodyMetrics.length > 0 ? `체중 ${context.bodyMetrics[0].weightKg ?? 
 - fullReport는 마크다운 형식으로, 이모지 없이 작성하세요. "오늘 코칭"과 "내일 계획" 섹션을 모두 포함하세요.`;
 
   return generateStructured(prompt, DailyReportSchema, {
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-flash-lite-preview",
   });
 }

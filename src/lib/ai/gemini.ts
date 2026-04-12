@@ -15,7 +15,7 @@ export async function generateStructured<T>(
   schema: { parse: (data: unknown) => T },
   options?: { model?: string; systemPrompt?: string }
 ): Promise<T> {
-  const model = options?.model ?? "gemini-3-flash-preview";
+  const model = options?.model ?? "gemini-3.1-flash-lite-preview";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsonSchema = z.toJSONSchema(schema as any);
   console.log("[Gemini] JSON Schema:", JSON.stringify(jsonSchema).slice(0, 500));
@@ -60,7 +60,7 @@ export async function generateStructuredWithImage<T>(
   schema: { parse: (data: unknown) => T },
   options?: { model?: string; systemPrompt?: string }
 ): Promise<T> {
-  const model = options?.model ?? "gemini-3-flash-preview";
+  const model = options?.model ?? "gemini-3.1-flash-lite-preview";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsonSchema = z.toJSONSchema(schema as any);
 
@@ -98,7 +98,7 @@ export async function generateText(
   prompt: string,
   options?: { model?: string; systemPrompt?: string }
 ): Promise<string> {
-  const model = options?.model ?? "gemini-3-flash-preview";
+  const model = options?.model ?? "gemini-3.1-flash-lite-preview";
 
   const fullPrompt = options?.systemPrompt
     ? `[System]: ${options.systemPrompt}\n\n${prompt}`
@@ -116,7 +116,7 @@ export async function generateChat(
   history: Array<{ role: "user" | "assistant"; content: string }>,
   options?: { model?: string; systemPrompt?: string }
 ): Promise<string> {
-  const model = options?.model ?? "gemini-3-flash-preview";
+  const model = options?.model ?? "gemini-3.1-flash-lite-preview";
 
   const contents = history.map((msg) => ({
     role: msg.role === "assistant" ? "model" : "user",
